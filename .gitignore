@@ -1,0 +1,20 @@
+node_modules/
+.env
+*.log
+.DS_Store
+auth_info/
+contacts_map.json
+scratch/
+models_output.txt
+
+# Assets besar (jangan di-push)
+*.pdf
+*.jpg
+*.jpeg
+*.png
+
+# Build output
+dist/
+
+# OS files
+Thumbs.db
