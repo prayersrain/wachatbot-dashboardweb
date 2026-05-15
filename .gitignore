@@ -7,11 +7,12 @@ contacts_map.json
 scratch/
 models_output.txt
 
-# Assets besar (jangan di-push)
-*.pdf
-*.jpg
-*.jpeg
-*.png
+# Assets besar di root (jangan di-push)
+/Price list*
+/*.pdf
+/*.jpg
+/*.jpeg
+/*.png
 
 # Build output
 dist/
