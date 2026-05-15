@@ -6,7 +6,9 @@ import {
   ShoppingBag, 
   DollarSign,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -19,19 +21,19 @@ import {
 } from 'recharts';
 
 const StatCard = ({ title, value, icon: Icon, color, trend }) => (
-  <div className="glass-card stat-card animate-fade">
-    <div className="stat-content">
-      <p className="stat-title">{title}</p>
-      <h2 className="stat-value">{value}</h2>
-      {trend && (
-        <div className={`stat-trend ${trend > 0 ? 'up' : 'down'}`}>
-          {trend > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+  <div className="bg-white border border-stone-100 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
+    <div className="space-y-1">
+      <p className="text-stone-muted text-xs font-bold uppercase tracking-widest">{title}</p>
+      <h2 className="text-2xl font-black text-secondary tracking-tight group-hover:text-primary transition-colors">{value}</h2>
+      {trend !== undefined && (
+        <div className={`flex items-center gap-1 text-[10px] font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {trend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
           <span>{Math.abs(trend)}% vs kemarin</span>
         </div>
       )}
     </div>
-    <div className="stat-icon-wrapper" style={{ backgroundColor: `${color}20`, color: color }}>
-      <Icon size={24} />
+    <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: `${color}15`, color: color }}>
+      <Icon size={24} strokeWidth={2.5} />
     </div>
   </div>
 );
@@ -44,17 +46,18 @@ export default function Dashboard() {
     activeCustomers: 0
   });
   const [chartData, setChartData] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = async () => {
     try {
-      // Fetch stats from Supabase
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
       const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      // 1. Today Revenue
+      // 1. Today Revenue (Completed Only)
       const { data: todayOrders } = await supabase
         .from('orders')
         .select('total_price')
@@ -66,17 +69,17 @@ export default function Dashboard() {
       // 2. Month Revenue
       const { data: monthOrders } = await supabase
         .from('orders')
-        .select('total_price, created_at')
+        .select('total_price')
         .gte('created_at', firstDayMonth.toISOString())
         .eq('order_status', 'completed');
       
       const monthRev = monthOrders?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
 
-      // 3. Active Orders
+      // 3. Active Orders (Not Cancelled/Completed)
       const { count: orderCount } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
-        .not('order_status', 'in', '("cancelled")');
+        .not('order_status', 'in', '("cancelled", "completed")');
 
       // 4. Total Customers
       const { count: customerCount } = await supabase
@@ -89,20 +92,41 @@ export default function Dashboard() {
         totalOrders: orderCount || 0,
         activeCustomers: customerCount || 0
       });
-      console.log('✅ Stats loaded successfully');
 
-      // 5. Prepare Chart Data (Last 7 days)
-      const last7Days = [...Array(7)].map((_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        return d.toLocaleDateString('id-ID', { weekday: 'short' });
+      // 5. Real Sales Chart Data (Last 7 Days)
+      const { data: salesData } = await supabase
+        .from('orders')
+        .select('total_price, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .eq('order_status', 'completed')
+        .order('created_at', { ascending: true });
+
+      // Group sales by day
+      const dayMap = {};
+      salesData?.forEach(order => {
+        const dateKey = new Date(order.created_at).toLocaleDateString('id-ID', { weekday: 'short' });
+        dayMap[dateKey] = (dayMap[dateKey] || 0) + (Number(order.total_price) || 0);
       });
 
-      // Dummy data for chart if no real data yet
-      setChartData(last7Days.map(day => ({
-        name: day,
-        sales: Math.floor(Math.random() * 500000) + 100000
-      })));
+      const formattedChartData = [...Array(7)].map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        const key = d.toLocaleDateString('id-ID', { weekday: 'short' });
+        return {
+          name: key,
+          sales: dayMap[key] || 0
+        };
+      });
+      setChartData(formattedChartData);
+
+      // 6. Recent Orders
+      const { data: latestOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      setRecentOrders(latestOrders || []);
 
       setLoading(false);
     } catch (err) {
@@ -112,163 +136,139 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      await fetchStats();
+    let mounted = true;
+    
+    const loadData = async () => {
+      if (mounted) await fetchStats();
     };
-    init();
+    loadData();
+    
+    // Auto refresh every minute
+    const interval = setInterval(fetchStats, 60000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  if (loading) return <div className="loading-state">Memuat dashboard...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center h-96 gap-4">
+      <div className="w-12 h-12 border-4 border-stone-200 border-t-primary rounded-full animate-spin" />
+      <p className="text-stone-muted font-bold animate-pulse uppercase tracking-widest text-xs">Cooking Data...</p>
+    </div>
+  );
 
   return (
-    <div className="dashboard-page">
-      <header className="page-header">
-        <h1 className="text-gradient">Ringkasan Penjualan</h1>
-        <p>Data terbaru operasional Yoyo Bakery</p>
+    <div className="space-y-8 pb-10">
+      <header>
+        <h1 className="text-3xl font-black text-secondary tracking-tight">Halo, Admin! 👋</h1>
+        <p className="text-stone-muted font-medium mt-1">Cek performa Yoyo Bakery hari ini.</p>
       </header>
 
-      <div className="stats-grid">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard 
-          title="Pendapatan Hari Ini" 
+          title="Hari Ini" 
           value={`Rp ${stats.todayRevenue.toLocaleString('id-ID')}`} 
           icon={DollarSign}
-          color="#f59e0b"
+          color="#D97706"
           trend={12}
         />
         <StatCard 
-          title="Pendapatan Bulan Ini" 
+          title="Bulan Ini" 
           value={`Rp ${stats.monthRevenue.toLocaleString('id-ID')}`} 
           icon={TrendingUp}
-          color="#3b82f6"
+          color="#0EA5E9"
           trend={8}
         />
         <StatCard 
-          title="Total Pesanan Aktif" 
+          title="Pesanan Aktif" 
           value={stats.totalOrders} 
           icon={ShoppingBag}
-          color="#10b981"
+          color="#10B981"
         />
         <StatCard 
-          title="Total Pelanggan" 
+          title="Pelanggan" 
           value={stats.activeCustomers} 
           icon={Users}
-          color="#8b5cf6"
+          color="#8B5CF6"
         />
       </div>
 
-      <div className="chart-section glass-card animate-fade">
-        <div className="chart-header">
-          <h3>Tren Penjualan (7 Hari Terakhir)</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Chart Section */}
+        <div className="lg:col-span-2 bg-white border border-stone-100 p-8 rounded-[40px] shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-lg font-black text-secondary tracking-tight">Tren Penjualan</h3>
+            <div className="bg-stone-50 px-3 py-1.5 rounded-full text-[10px] font-black text-stone-muted uppercase tracking-widest">7 Hari Terakhir</div>
+          </div>
+          <div className="h-[300px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" debounce={100}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#D97706" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#D97706" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F4" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fill: '#A8A29E', fontSize: 11, fontWeight: 700}} 
+                  dy={15}
+                />
+                <YAxis hide />
+                <Tooltip 
+                  cursor={{stroke: '#D97706', strokeWidth: 1}}
+                  contentStyle={{ 
+                    backgroundColor: '#FFF', 
+                    border: 'none',
+                    borderRadius: '20px',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                    padding: '12px'
+                  }}
+                  itemStyle={{ color: '#D97706', fontWeight: 800, fontSize: '14px' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="sales" 
+                  stroke="#D97706" 
+                  strokeWidth={4}
+                  fillOpacity={1} 
+                  fill="url(#colorSales)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="chart-wrapper">
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fill: '#94a3b8', fontSize: 12}} 
-                dy={10}
-              />
-              <YAxis 
-                hide 
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1e293b', 
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  color: '#fff'
-                }}
-                itemStyle={{ color: '#f59e0b' }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="sales" 
-                stroke="#f59e0b" 
-                strokeWidth={3}
-                fillOpacity={1} 
-                fill="url(#colorSales)" 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+
+        {/* Recent Orders List */}
+        <div className="bg-bakery-sidebar border border-stone-200 p-8 rounded-[40px] shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-black text-secondary tracking-tight">Pesanan Baru</h3>
+            <Clock size={18} className="text-stone-300" />
+          </div>
+          <div className="flex-1 space-y-4">
+            {recentOrders.map(order => (
+              <div key={order.id} className="bg-white p-4 rounded-2xl border border-stone-100 flex items-center gap-3 group cursor-pointer hover:border-primary transition-all">
+                <div className="w-10 h-10 rounded-xl bg-bakery-bg flex items-center justify-center font-black text-primary text-xs">
+                  #{String(order.order_number || '').slice(-2)}
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-secondary truncate">{order.customer_name}</p>
+                  <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest">Rp {Number(order.total_price).toLocaleString('id-ID')}</p>
+                </div>
+                <ChevronRight size={14} className="text-stone-200 group-hover:text-primary transition-colors" />
+              </div>
+            ))}
+          </div>
+          <button className="mt-6 w-full py-3 bg-white border border-stone-200 rounded-2xl text-xs font-black uppercase tracking-widest text-stone-text hover:bg-stone-50 transition-colors">
+            Lihat Semua
+          </button>
         </div>
       </div>
-
-      <style jsx>{`
-        .dashboard-page {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-        .page-header {
-          margin-bottom: 30px;
-        }
-        .page-header p { color: var(--text-muted); font-size: 14px; }
-
-        .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-          gap: 20px;
-          margin-bottom: 30px;
-        }
-
-        .stat-card {
-          padding: 24px;
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          transition: var(--transition);
-        }
-        .stat-card:hover { transform: translateY(-5px); }
-
-        .stat-title {
-          color: var(--text-muted);
-          font-size: 14px;
-          margin-bottom: 8px;
-        }
-        .stat-value {
-          font-size: 22px;
-          margin-bottom: 8px;
-        }
-        .stat-trend {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 12px;
-          font-weight: 600;
-        }
-        .stat-trend.up { color: var(--accent-green); }
-        .stat-trend.down { color: var(--accent-red); }
-
-        .stat-icon-wrapper {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .chart-section {
-          padding: 30px;
-          margin-bottom: 30px;
-        }
-        .chart-header { margin-bottom: 25px; }
-        .chart-header h3 { font-size: 18px; }
-        .chart-wrapper { width: 100%; }
-
-        @media (max-width: 768px) {
-          .stats-grid { grid-template-columns: 1fr; }
-          .chart-section { padding: 20px; }
-        }
-      `}</style>
     </div>
   );
 }

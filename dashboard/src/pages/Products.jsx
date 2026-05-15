@@ -10,12 +10,15 @@ import {
   Check,
   AlertCircle,
   Camera,
-  Loader2
+  Loader2,
+  Search,
+  Tag
 } from 'lucide-react';
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [uploadingId, setUploadingId] = useState(null);
@@ -30,7 +33,7 @@ export default function Products() {
       .select('*')
       .order('name', { ascending: true });
     
-    if (!error) setProducts(data);
+    if (!error) setProducts(data || []);
     setLoading(false);
   };
 
@@ -44,19 +47,16 @@ export default function Products() {
       const fileName = `${productId}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // 1. Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('products')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('products')
         .getPublicUrl(filePath);
 
-      // 3. Update Product in Database
       const { error: updateError } = await supabase
         .from('products')
         .update({ image_url: publicUrl })
@@ -67,7 +67,7 @@ export default function Products() {
       await fetchProducts();
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Gagal upload gambar: ' + error.message);
+      alert('Gagal upload gambar. Pastikan Policy Storage di Supabase sudah diatur.');
     } finally {
       setUploadingId(null);
     }
@@ -78,15 +78,16 @@ export default function Products() {
     setEditForm({ ...product });
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditForm({});
-  };
-
   const saveEdit = async () => {
+    if (!editForm.name || Number(editForm.price) <= 0) {
+      alert('Nama tidak boleh kosong dan harga harus lebih dari 0.');
+      return;
+    }
+
     const { error } = await supabase
       .from('products')
       .update({
+        name: editForm.name,
         price: Number(editForm.price),
         stock_status: editForm.stock_status,
         description: editForm.description
@@ -101,29 +102,53 @@ export default function Products() {
     }
   };
 
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="products-page">
-      <header className="page-header">
-        <h1 className="text-gradient">Inventaris Produk</h1>
-        <p>Atur harga dan ketersediaan stok roti secara instan</p>
+    <div className="space-y-8">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-secondary tracking-tight">Inventaris Produk</h1>
+          <p className="text-stone-muted font-medium mt-1">Kelola menu roti, harga, dan ketersediaan stok.</p>
+        </div>
+        <div className="relative w-full md:w-72">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300" />
+          <input 
+            type="text" 
+            placeholder="Cari roti..." 
+            className="w-full bg-white border border-stone-100 rounded-2xl py-3 pl-11 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-sm font-medium"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </header>
 
-      <div className="products-grid animate-fade">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
         {loading ? (
-          <div className="loading-state">Memuat daftar produk...</div>
+          <div className="col-span-full py-20 text-center animate-pulse">
+             <p className="text-stone-muted font-black uppercase tracking-[0.2em] text-xs">Memuat Produk...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="col-span-full py-20 bg-white border-2 border-dashed border-stone-100 rounded-[40px] text-center">
+            <Package size={48} className="mx-auto text-stone-200 mb-4" />
+            <p className="text-stone-muted font-bold tracking-tight">Tidak ada produk ditemukan.</p>
+          </div>
         ) : (
-          products.map((product) => (
-            <div key={product.id} className={`product-card glass-card ${editingId === product.id ? 'editing' : ''}`}>
-              <div className="product-image-container">
+          filteredProducts.map((product) => (
+            <div key={product.id} className={`bg-white border transition-all duration-300 rounded-[32px] overflow-hidden group ${editingId === product.id ? 'border-primary ring-4 ring-primary/5' : 'border-stone-100 hover:border-stone-200 hover:shadow-xl'}`}>
+              <div className="relative aspect-square bg-stone-50 overflow-hidden">
                 {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="product-image" />
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 ) : (
-                  <div className="product-image-placeholder">
-                    <Package size={32} />
+                  <div className="w-full h-full flex flex-col items-center justify-center text-stone-200">
+                    <Package size={40} strokeWidth={1.5} />
+                    <span className="text-[10px] font-black uppercase tracking-widest mt-2">No Photo</span>
                   </div>
                 )}
                 
-                <label className="image-upload-overlay">
+                <label className="absolute inset-0 bg-secondary/60 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -132,190 +157,96 @@ export default function Products() {
                     disabled={uploadingId === product.id}
                   />
                   {uploadingId === product.id ? (
-                    <Loader2 className="animate-spin" />
+                    <Loader2 className="animate-spin text-white w-8 h-8" />
                   ) : (
-                    <Camera size={24} />
+                    <div className="text-white flex flex-col items-center gap-2">
+                      <Camera size={24} strokeWidth={2.5} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Ganti Foto</span>
+                    </div>
                   )}
                 </label>
+
+                <div className="absolute top-3 left-3">
+                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm border ${
+                    product.stock_status === 'ready' ? 'bg-emerald-500 text-white border-emerald-400' : 
+                    product.stock_status === 'po' ? 'bg-primary text-white border-primary/50' : 
+                    'bg-rose-500 text-white border-rose-400'
+                  }`}>
+                    {product.stock_status}
+                  </span>
+                </div>
               </div>
               
-              <div className="product-info">
-                <h3>{product.name}</h3>
-                
-                {editingId === product.id ? (
-                  <div className="edit-fields">
-                    <div className="field">
-                      <label>Harga (Rp)</label>
-                      <input 
-                        type="number" 
-                        value={editForm.price} 
-                        onChange={(e) => setEditForm({...editForm, price: e.target.value})}
-                      />
+              <div className="p-5 space-y-4">
+                <div className="space-y-1">
+                  {editingId === product.id ? (
+                    <input 
+                      type="text"
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-primary"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                    />
+                  ) : (
+                    <h3 className="font-black text-secondary group-hover:text-primary transition-colors truncate">{product.name}</h3>
+                  )}
+                  
+                  {editingId === product.id ? (
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-stone-300">Rp</span>
+                        <input 
+                          type="number" 
+                          className="w-full bg-stone-50 border border-stone-200 rounded-xl py-2 pl-8 pr-2 text-sm font-bold outline-none focus:border-primary"
+                          value={editForm.price} 
+                          onChange={(e) => setEditForm({...editForm, price: e.target.value})}
+                        />
+                      </div>
                     </div>
-                    <div className="field">
-                      <label>Status Stok</label>
-                      <select 
-                        value={editForm.stock_status} 
-                        onChange={(e) => setEditForm({...editForm, stock_status: e.target.value})}
-                      >
-                        <option value="ready">Ready Stock</option>
-                        <option value="po">Pre-Order</option>
-                        <option value="out_of_stock">Habis</option>
-                      </select>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="display-fields">
-                    <p className="product-price">Rp {(product.price || 0).toLocaleString('id-ID')}</p>
-                    <span className={`stock-badge ${product.stock_status}`}>
-                      {product.stock_status === 'ready' ? 'Ready' : product.stock_status === 'po' ? 'PO' : 'Habis'}
-                    </span>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <p className="text-primary font-black text-lg tracking-tighter">Rp {(product.price || 0).toLocaleString('id-ID')}</p>
+                  )}
+                </div>
 
-              <div className="product-actions">
-                {editingId === product.id ? (
-                  <>
-                    <button onClick={saveEdit} className="action-btn save">
-                      <Save size={18} />
-                    </button>
-                    <button onClick={cancelEdit} className="action-btn cancel">
-                      <X size={18} />
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => startEdit(product)} className="action-btn edit">
-                    <Edit3 size={18} />
-                  </button>
+                {editingId === product.id && (
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-stone-muted uppercase tracking-widest ml-1">Status Stok</label>
+                    <select 
+                      className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-primary appearance-none cursor-pointer"
+                      value={editForm.stock_status} 
+                      onChange={(e) => setEditForm({...editForm, stock_status: e.target.value})}
+                    >
+                      <option value="ready">Ready Stock</option>
+                      <option value="po">Pre-Order (PO)</option>
+                      <option value="out_of_stock">Stok Habis</option>
+                    </select>
+                  </div>
                 )}
+
+                <div className="pt-4 border-t border-stone-50">
+                  {editingId === product.id ? (
+                    <div className="flex gap-2">
+                      <button onClick={saveEdit} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white p-2 rounded-xl flex items-center justify-center transition-all">
+                        <Check size={18} strokeWidth={3} />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-400 p-2 rounded-xl flex items-center justify-center transition-all">
+                        <X size={18} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => startEdit(product)} 
+                      className="w-full bg-stone-50 hover:bg-primary hover:text-white text-stone-400 p-3 rounded-2xl flex items-center justify-center gap-2 transition-all group/btn"
+                    >
+                      <Edit3 size={16} className="group-hover/btn:rotate-12 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Edit Produk</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
         )}
       </div>
-
-      <style jsx>{`
-        .products-page { max-width: 1200px; margin: 0 auto; }
-        .page-header { margin-bottom: 30px; }
-        .page-header p { color: var(--text-muted); font-size: 14px; }
-
-        .products-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-          gap: 20px;
-        }
-
-        .product-card {
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-          transition: var(--transition);
-        }
-        .product-card:hover { transform: translateY(-5px); }
-        .product-card.editing { border-color: var(--primary); background: rgba(245, 158, 11, 0.05); }
-
-        .product-image-container {
-          position: relative;
-          width: 100%;
-          height: 160px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 12px;
-          overflow: hidden;
-        }
-
-        .product-image {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-
-        .product-image-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--text-muted);
-        }
-
-        .image-upload-overlay {
-          position: absolute;
-          inset: 0;
-          background: rgba(0,0,0,0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          transition: var(--transition);
-          cursor: pointer;
-        }
-
-        .product-image-container:hover .image-upload-overlay {
-          opacity: 1;
-        }
-
-        .product-info { flex: 1; }
-        .product-info h3 { font-size: 18px; margin-bottom: 8px; }
-
-        .display-fields { display: flex; align-items: center; gap: 15px; }
-        .product-price { font-size: 16px; font-weight: 600; color: var(--primary); }
-
-        .stock-badge {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 20px;
-          text-transform: uppercase;
-        }
-        .stock-badge.ready { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-        .stock-badge.po { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
-        .stock-badge.out_of_stock { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-
-        .edit-fields { display: flex; flex-direction: column; gap: 10px; }
-        .field { display: flex; flex-direction: column; gap: 4px; }
-        .field label { font-size: 11px; color: var(--text-muted); }
-        .field input, .field select {
-          background: var(--bg);
-          border: 1px solid var(--card-border);
-          color: #fff;
-          padding: 6px 10px;
-          border-radius: 6px;
-          font-size: 14px;
-        }
-
-        .product-actions { display: flex; gap: 10px; }
-        .action-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255,255,255,0.05);
-          color: var(--text-muted);
-        }
-        .action-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
-        .action-btn.save { color: var(--accent-green); }
-        .action-btn.cancel { color: var(--accent-red); }
-        .action-btn.edit { color: var(--primary); }
-
-        .loading-state { grid-column: 1 / -1; text-align: center; padding: 100px; color: var(--text-muted); }
-
-        @media (max-width: 640px) {
-          .products-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-          .product-card { padding: 12px; }
-          .product-image-container { height: 110px; }
-          .product-info h3 { font-size: 14px; }
-          .display-fields { flex-direction: column; align-items: flex-start; gap: 5px; }
-          .product-price { font-size: 14px; }
-          .product-actions { margin-top: 10px; width: 100%; justify-content: space-between; }
-        }
-      `}</style>
     </div>
   );
 }

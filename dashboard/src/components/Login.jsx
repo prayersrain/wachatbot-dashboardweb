@@ -25,134 +25,71 @@ export default function Login() {
   };
 
   return (
-    <div className="login-container">
-      <div className="glass-card login-card animate-fade">
-        <div className="login-header">
-          <img src="/logoyoyobolen.PNG" alt="Yoyo Bakery" className="brand-logo-large" />
-          <h1 className="text-gradient">Yoyo Bakery</h1>
-          <p>Backoffice Staff Portal</p>
+    <div className="flex items-center justify-center min-h-screen bg-bakery-bg p-6">
+      <div className="w-full max-w-md bg-white border border-stone-200 rounded-[40px] p-10 md:p-14 shadow-2xl animate-fade">
+        <div className="text-center mb-10">
+          <div className="inline-block bg-bakery-bg p-4 rounded-3xl mb-6 shadow-inner">
+            <img src="/logoyoyobolen.PNG" alt="Yoyo Bakery" className="w-20 h-20 object-contain" />
+          </div>
+          <h1 className="text-3xl font-black text-secondary tracking-tight">Yoyo Bakery</h1>
+          <p className="text-stone-muted font-medium mt-2">Staff Access Portal</p>
         </div>
 
-        <form onSubmit={handleLogin} className="login-form">
-          <div className="input-group">
-            <Mail size={18} className="input-icon" />
-            <input
-              type="email"
-              placeholder="Email Staff"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-stone-muted uppercase tracking-widest ml-1">Email</label>
+            <div className="relative group">
+              <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-primary transition-colors" />
+              <input
+                type="email"
+                placeholder="staff@yoyobakery.com"
+                className="w-full bg-stone-50 border border-stone-200 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-stone-text font-medium"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
-          <div className="input-group">
-            <Lock size={18} className="input-icon" />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-stone-muted uppercase tracking-widest ml-1">Password</label>
+            <div className="relative group">
+              <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-primary transition-colors" />
+              <input
+                type="password"
+                placeholder="••••••••"
+                className="w-full bg-stone-50 border border-stone-200 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all text-stone-text font-medium"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
-          {error && <div className="error-msg">{error}</div>}
+          {error && (
+            <div className="bg-rose-50 text-rose-600 text-sm font-semibold p-4 rounded-2xl border border-rose-100 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+              {error}
+            </div>
+          )}
 
-          <button type="submit" disabled={loading} className="login-btn">
-            {loading ? <Loader2 className="spinner" /> : 'Masuk Dashboard'}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-secondary hover:bg-black text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-secondary/20 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-3"
+          >
+            {loading ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              'Masuk Sekarang'
+            )}
           </button>
         </form>
+        
+        <p className="text-center text-xs text-stone-muted mt-10 font-medium">
+          &copy; 2024 Yoyo Bakery Management
+        </p>
       </div>
-
-      <style jsx>{`
-        .login-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 100vh;
-          padding: 20px;
-        }
-        .login-card {
-          width: 100%;
-          max-width: 400px;
-          padding: 40px;
-          text-align: center;
-        }
-        .login-header {
-          margin-bottom: 30px;
-        }
-        .logo-icon {
-          font-size: 40px;
-          margin-bottom: 10px;
-        }
-        .login-header p {
-          color: var(--text-muted);
-          font-size: 14px;
-          margin-top: 5px;
-        }
-        .login-form {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-        .input-group {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .input-icon {
-          position: absolute;
-          left: 15px;
-          color: var(--text-muted);
-        }
-        .input-group input {
-          width: 100%;
-          padding: 14px 15px 14px 45px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--card-border);
-          border-radius: 12px;
-          color: #fff;
-          transition: var(--transition);
-        }
-        .input-group input:focus {
-          border-color: var(--primary);
-          background: rgba(255, 255, 255, 0.08);
-        }
-        .login-btn {
-          padding: 14px;
-          background: linear-gradient(135deg, var(--primary), #fbbf24);
-          color: #000;
-          font-weight: 700;
-          border-radius: 12px;
-          margin-top: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .login-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4);
-        }
-        .login-btn:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none;
-        }
-        .error-msg {
-          color: var(--accent-red);
-          font-size: 13px;
-          background: rgba(239, 68, 68, 0.1);
-          padding: 10px;
-          border-radius: 8px;
-        }
-        .spinner {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { 
   Search, 
@@ -6,115 +6,81 @@ import {
   FileSpreadsheet,
   X,
   MapPin,
-  Phone,
   User,
-  Calendar,
   ExternalLink,
-  Bell
+  MessageSquare,
+  CheckCircle2,
+  Clock,
+  Package,
+  Truck,
+  XCircle,
+  Volume2,
+  VolumeX,
+  ShoppingBag
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-const STATUS_COLORS = {
-  new: '#f59e0b',
-  waiting_payment: '#3b82f6',
-  confirmed: '#8b5cf6',
-  packing: '#fbbf24',
-  shipping: '#0ea5e9',
-  completed: '#10b981',
-  cancelled: '#ef4444'
+const STATUS_CONFIG = {
+  waiting_payment: { label: 'Menunggu Bayar', color: '#F59E0B', icon: Clock },
+  confirmed: { label: 'Konfirmasi', color: '#8B5CF6', icon: CheckCircle2 },
+  packing: { label: 'Diproses', color: '#F59E0B', icon: Package },
+  shipping: { label: 'Dikirim', color: '#0EA5E9', icon: Truck },
+  completed: { label: 'Selesai', color: '#10B981', icon: CheckCircle2 },
+  cancelled: { label: 'Batal', color: '#EF4444', icon: XCircle }
 };
 
-const STATUS_LABELS = {
-  waiting_payment: 'Menunggu Bayar',
-  confirmed: 'Konfirmasi (Siap)',
-  packing: 'Diproses',
-  shipping: 'Dikirim',
-  completed: 'Selesai',
-  cancelled: 'Batal'
-};
+const ORDER_STATUSES = ['all', 'waiting_payment', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'];
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [notifPermission, setNotifPermission] = useState(Notification.permission);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'));
 
-  const requestNotif = async () => {
-    const permission = await Notification.requestPermission();
-    setNotifPermission(permission);
-  };
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) {
-      console.error('❌ Gagal ambil data pesanan:', error);
-    } else {
-      setOrders(data);
-    }
+    if (fetchError) console.error('❌ Gagal ambil data pesanan:', fetchError);
+    else setOrders(data || []);
     setLoading(false);
-  };
+  }, []);
 
-  const exportToExcel = () => {
-    const dataToExport = orders.map(o => ({
-      'No. Pesanan': `#${o.order_number}`,
-      'Nama Pelanggan': o.customer_name,
-      'WhatsApp': (o.wa_number || '').split('@')[0], // Bersihkan @lid atau @s.whatsapp.net
-      'Status': STATUS_LABELS[o.order_status] || o.order_status,
-      'Total Belanja': `Rp ${Number(o.total_price).toLocaleString('id-ID')}`,
-      'Tanggal': new Date(o.created_at).toLocaleString('id-ID'),
-      'Alamat Pengiriman': o.customer_address || '-'
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    
-    // Set column widths for a "prettier" look
-    const colWidths = [
-      { wch: 15 }, // No Pesanan
-      { wch: 20 }, // Nama
-      { wch: 15 }, // WA
-      { wch: 15 }, // Status
-      { wch: 15 }, // Total
-      { wch: 20 }, // Tanggal
-      { wch: 40 }, // Alamat
-    ];
-    ws['!cols'] = colWidths;
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Laporan Penjualan");
-    XLSX.writeFile(wb, `Laporan-YoyoBakery-${new Date().toLocaleDateString('id-ID')}.xlsx`);
-  };
+  const playNotification = useCallback(() => {
+    if (soundEnabled) {
+      audioRef.current.play().catch(() => console.log('Audio play blocked'));
+    }
+    if (Notification.permission === 'granted') {
+      new Notification('Pesanan Baru! 🥐', {
+        body: 'Ada pelanggan baru nih, cek dashboard ya!',
+        icon: '/favicon.png'
+      });
+    }
+  }, [soundEnabled]);
 
   useEffect(() => {
-    const init = async () => {
-      await fetchOrders();
-    };
-    init();
+    fetchOrders();
 
-    // Real-time subscription
     const channel = supabase
-      .channel('orders_channel')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-        if (Notification.permission === 'granted') {
-          new Notification('Pesanan Baru! 🥐', {
-            body: `Ada pesanan baru dari ${payload.new.customer_name}`,
-            icon: '/logoyoyobolen.PNG'
-          });
-        }
+      .channel('orders_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+        playNotification();
         fetchOrders();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
         fetchOrders();
       })
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [fetchOrders, playNotification]);
 
   const updateStatus = async (orderId, newStatus) => {
     const { error } = await supabase
@@ -122,109 +88,163 @@ export default function Orders() {
       .update({ order_status: newStatus })
       .eq('id', orderId);
     
-    if (error) {
-      alert('Gagal update status: ' + error.message);
-    } else {
-      await fetchOrders();
-    }
+    if (error) alert('Gagal update: ' + error.message);
+    else fetchOrders();
+  };
+
+  const exportToExcel = () => {
+    const dataToExport = orders.map(o => ({
+      'No. Pesanan': `#${o.order_number}`,
+      'Nama': o.customer_name,
+      'WA': o.wa_number?.split('@')[0],
+      'Status': STATUS_CONFIG[o.order_status]?.label || o.order_status,
+      'Total': o.total_price,
+      'Tanggal': new Date(o.created_at).toLocaleString('id-ID')
+    }));
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pesanan");
+    XLSX.writeFile(wb, `Orders-${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const filteredOrders = orders.filter(order => {
-    const term = searchTerm.toLowerCase();
-    const orderNum = String(order.order_number || '').toLowerCase();
-    const custName = String(order.customer_name || '').toLowerCase();
-    const waNum = String(order.wa_number || '');
-    
-    return orderNum.includes(term) || custName.includes(term) || waNum.includes(term);
+    const matchesSearch = 
+      String(order.order_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      String(order.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = activeFilter === 'all' || order.order_status === activeFilter;
+    return matchesSearch && matchesFilter;
   });
 
+  const getStatusCount = (status) => {
+    if (status === 'all') return orders.length;
+    return orders.filter(o => o.order_status === status).length;
+  };
+
   return (
-    <div className="orders-page">
-      <header className="page-header">
-        <h1 className="text-gradient">Manajemen Pesanan</h1>
-        <p>Kelola dan pantau pesanan pelanggan secara real-time</p>
+    <div className="space-y-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-secondary tracking-tight">Daftar Pesanan</h1>
+          <p className="text-stone-muted font-medium mt-1">Kelola pesanan roti dari pelanggan WA.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`p-3 rounded-2xl border transition-all ${soundEnabled ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-stone-100 border-stone-200 text-stone-400'}`}
+            title={soundEnabled ? "Matikan Suara" : "Aktifkan Suara"}
+          >
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95 text-sm">
+            <FileSpreadsheet size={18} />
+            <span>Rekap Excel</span>
+          </button>
+        </div>
       </header>
 
-      <div className="table-controls glass-card animate-fade">
-        <div className="search-box">
-          <Search size={18} />
+      {/* Filters & Search */}
+      <div className="bg-white border border-stone-100 p-4 md:p-6 rounded-[32px] shadow-sm space-y-6">
+        <div className="relative group">
+          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-primary transition-colors" />
           <input 
             type="text" 
-            placeholder="Cari Order ID atau Nama Customer..." 
+            placeholder="Cari nomor pesanan atau nama pelanggan..." 
+            className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all font-medium"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
-        <div className="action-group">
-          {notifPermission !== 'granted' && (
-            <button className="notif-btn" onClick={requestNotif} title="Aktifkan Notifikasi">
-              <Bell size={18} />
+
+        <div className="flex flex-wrap gap-2">
+          {ORDER_STATUSES.map(status => (
+            <button
+              key={status}
+              onClick={() => setActiveFilter(status)}
+              className={`
+                px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2
+                ${activeFilter === status 
+                  ? 'bg-secondary text-white shadow-lg shadow-secondary/20 scale-105' 
+                  : 'bg-stone-50 text-stone-400 hover:bg-stone-100'
+                }
+              `}
+            >
+              <span>{status === 'all' ? 'Semua' : STATUS_CONFIG[status]?.label}</span>
+              <span className={`px-2 py-0.5 rounded-lg text-[10px] ${activeFilter === status ? 'bg-white/20' : 'bg-stone-200 text-stone-500'}`}>
+                {getStatusCount(status)}
+              </span>
             </button>
-          )}
-          <button className="export-btn" onClick={exportToExcel} title="Ekspor ke Excel">
-            <FileSpreadsheet size={18} />
-            <span>Rekap Excel</span>
-          </button>
-          <button className="filter-btn">
-            <Filter size={18} />
-          </button>
+          ))}
         </div>
       </div>
 
-      <div className="orders-list animate-fade">
+      {/* Orders Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading ? (
-          <div className="loading-state">Memuat data pesanan...</div>
+          <div className="col-span-full py-20 text-center animate-pulse">
+            <p className="text-stone-muted font-black uppercase tracking-[0.2em] text-xs">Memuat Pesanan...</p>
+          </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="empty-state">Tidak ada pesanan ditemukan.</div>
+          <div className="col-span-full py-20 bg-white border-2 border-dashed border-stone-100 rounded-[40px] text-center">
+            <ShoppingBag size={48} className="mx-auto text-stone-200 mb-4" />
+            <p className="text-stone-muted font-bold tracking-tight">Tidak ada pesanan ditemukan.</p>
+          </div>
         ) : (
           filteredOrders.map((order) => {
-            let items = [];
-            try {
-              items = typeof order.items === 'string' ? JSON.parse(order.items) : (Array.isArray(order.items) ? order.items : []);
-            } catch (e) {
-              console.error('Error parsing items');
-            }
-
+            const config = STATUS_CONFIG[order.order_status] || { label: order.order_status, color: '#A8A29E', icon: Clock };
+            const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+            
             return (
               <div 
                 key={order.id} 
-                className="order-card glass-card clickable"
+                className="bg-white border border-stone-100 rounded-[32px] p-6 shadow-sm hover:shadow-xl hover:border-stone-200 transition-all cursor-pointer group"
                 onClick={() => setSelectedOrder(order)}
               >
-                <div className="order-info">
-                  <div className="order-main">
-                    <h3>#{order.order_number}</h3>
-                    <p className="customer-name">{order.customer_name}</p>
-                    <p className="order-date">{order.created_at ? new Date(order.created_at).toLocaleString('id-ID') : '-'}</p>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-xl font-black text-secondary group-hover:text-primary transition-colors">#{order.order_number}</h3>
+                    <p className="text-sm font-bold text-stone-text mt-0.5">{order.customer_name}</p>
+                    <p className="text-[10px] text-stone-muted font-black uppercase tracking-widest mt-1">
+                      {new Date(order.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
-                  <div className="order-status-badge" style={{ backgroundColor: `${STATUS_COLORS[order.order_status] || '#94a3b8'}20`, color: STATUS_COLORS[order.order_status] || '#94a3b8' }}>
-                    {STATUS_LABELS[order.order_status] || order.order_status}
+                  <div 
+                    className="px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider"
+                    style={{ backgroundColor: `${config.color}15`, color: config.color }}
+                  >
+                    <config.icon size={12} strokeWidth={3} />
+                    {config.label}
                   </div>
                 </div>
 
-                <div className="order-items">
+                <div className="space-y-2 mb-6">
                   {items.slice(0, 2).map((item, idx) => (
-                    <span key={idx} className="item-tag">{item.qty}x {item.name}</span>
+                    <div key={idx} className="flex justify-between text-xs font-bold text-stone-text bg-stone-50 px-3 py-2 rounded-xl">
+                      <span>{item.qty}x {item.name}</span>
+                      <span className="text-stone-muted">Rp {item.price?.toLocaleString('id-ID')}</span>
+                    </div>
                   ))}
-                  {items.length > 2 && <span className="item-tag">+{items.length - 2} lagi...</span>}
+                  {items.length > 2 && (
+                    <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest text-center">+{items.length - 2} Produk Lainnya</p>
+                  )}
                 </div>
 
-                <div className="order-footer">
-                  <div className="order-total">
-                    <span>Total Bayar:</span>
-                    <strong>Rp {(Number(order.total_price) || 0).toLocaleString('id-ID')}</strong>
+                <div className="pt-5 border-t border-stone-50 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest leading-none">Total Tagihan</p>
+                    <p className="text-lg font-black text-primary tracking-tight leading-none">Rp {Number(order.total_price).toLocaleString('id-ID')}</p>
                   </div>
-                  <div className="order-actions" onClick={e => e.stopPropagation()}>
+                  
+                  <div onClick={e => e.stopPropagation()} className="relative">
                     <select 
-                      className="status-select"
+                      className="bg-stone-100 hover:bg-stone-200 border-none rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-secondary outline-none appearance-none cursor-pointer pr-8"
                       value={order.order_status}
                       onChange={(e) => updateStatus(order.id, e.target.value)}
                     >
-                      {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                        <option key={val} value={val}>{label}</option>
+                      {ORDER_STATUSES.filter(s => s !== 'all').map(s => (
+                        <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
                       ))}
                     </select>
+                    <Filter size={10} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400" />
                   </div>
                 </div>
               </div>
@@ -235,269 +255,102 @@ export default function Orders() {
 
       {/* Order Detail Modal */}
       {selectedOrder && (
-        <div className="modal-overlay animate-fade" onClick={() => setSelectedOrder(null)}>
-          <div className="modal-content glass-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Detail Pesanan #{selectedOrder.order_number}</h2>
-              <button className="close-btn" onClick={() => setSelectedOrder(null)}><X size={20} /></button>
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-2000 flex items-center justify-center p-4 md:p-6 animate-fade" onClick={() => setSelectedOrder(null)}>
+          <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[40px] shadow-2xl p-8 md:p-12 relative" onClick={e => e.stopPropagation()}>
+            <button className="absolute right-8 top-8 p-2 text-stone-300 hover:text-stone-900 transition-colors" onClick={() => setSelectedOrder(null)}>
+              <X size={24} />
+            </button>
+
+            <div className="mb-10">
+              <p className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-2">Detail Pesanan</p>
+              <h2 className="text-4xl font-black text-secondary tracking-tighter">#{selectedOrder.order_number}</h2>
+              <div className="flex flex-wrap gap-4 mt-6">
+                <div className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100">
+                  <User size={18} className="text-primary" />
+                  <div>
+                    <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest">Pelanggan</p>
+                    <p className="font-bold text-sm text-secondary">{selectedOrder.customer_name}</p>
+                  </div>
+                </div>
+                <a 
+                  href={`https://wa.me/${selectedOrder.wa_number?.split('@')[0]}`} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100 hover:border-emerald-200 transition-all"
+                >
+                  <MessageSquare size={18} className="text-emerald-500" />
+                  <div>
+                    <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest">WhatsApp</p>
+                    <p className="font-bold text-sm text-secondary">{selectedOrder.wa_number?.split('@')[0]}</p>
+                  </div>
+                </a>
+              </div>
             </div>
-            
-            <div className="modal-body">
-              <div className="info-section">
-                <div className="info-item">
-                  <User size={18} />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <MapPin size={20} className="text-primary shrink-0 mt-1" />
                   <div>
-                    <label>Pelanggan</label>
-                    <p>{selectedOrder.customer_name}</p>
-                  </div>
-                </div>
-                <div className="info-item">
-                  <Phone size={18} />
-                  <div>
-                    <label>Nomor WhatsApp</label>
-                    <p>{(selectedOrder.wa_number || '').split('@')[0]}</p>
-                  </div>
-                </div>
-                <div className="info-item">
-                  <Calendar size={18} />
-                  <div>
-                    <label>Waktu Pesan</label>
-                    <p>{new Date(selectedOrder.created_at).toLocaleString('id-ID')}</p>
+                    <p className="text-xs font-black text-stone-muted uppercase tracking-widest mb-1">Alamat Pengiriman</p>
+                    <p className="text-sm font-semibold text-secondary leading-relaxed">{selectedOrder.customer_address || '-'}</p>
+                    {selectedOrder.customer_address && (
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.customer_address)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest mt-3 border-b-2 border-primary/20 hover:border-primary transition-all"
+                      >
+                        <ExternalLink size={12} />
+                        Buka Maps
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="address-section">
-                <div className="info-item">
-                  <MapPin size={18} />
-                  <div>
-                    <label>Alamat Pengiriman</label>
-                    <p>{selectedOrder.customer_address || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="items-section">
-                <h3>Rincian Pesanan</h3>
-                <div className="items-list">
+              <div className="bg-bakery-bg p-6 rounded-[32px] border border-stone-100">
+                <p className="text-xs font-black text-stone-muted uppercase tracking-widest mb-4">Ringkasan Produk</p>
+                <div className="space-y-3">
                   {(typeof selectedOrder.items === 'string' ? JSON.parse(selectedOrder.items) : selectedOrder.items).map((item, idx) => (
-                    <div key={idx} className="detail-item">
-                      <span>{item.qty}x {item.name}</span>
-                      <span>Rp {(item.price * item.qty).toLocaleString('id-ID')}</span>
+                    <div key={idx} className="flex justify-between items-center text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] font-black text-primary border border-stone-100">{item.qty}</span>
+                        <span className="font-bold text-secondary">{item.name}</span>
+                      </div>
+                      <span className="font-bold text-stone-muted text-xs">Rp {(item.price * item.qty).toLocaleString('id-ID')}</span>
                     </div>
                   ))}
-                  <div className="detail-total">
-                    <span>Total Pembayaran</span>
-                    <span>Rp {Number(selectedOrder.total_price).toLocaleString('id-ID')}</span>
+                  <div className="pt-4 mt-4 border-t border-stone-200 flex justify-between items-center">
+                    <span className="text-xs font-black text-secondary uppercase tracking-widest">Total Bayar</span>
+                    <span className="text-2xl font-black text-primary tracking-tighter">Rp {Number(selectedOrder.total_price).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {selectedOrder.customer_address && (
-                <a 
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.customer_address)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="maps-link"
-                >
-                  <ExternalLink size={18} />
-                  <span>Lihat di Google Maps</span>
-                </a>
-              )}
+            <div className="flex flex-col md:flex-row gap-4">
+               {selectedOrder.order_status !== 'completed' && (
+                 <button 
+                  onClick={() => updateStatus(selectedOrder.id, 'completed')}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3"
+                 >
+                   <CheckCircle2 size={24} />
+                   Selesaikan Pesanan
+                 </button>
+               )}
+               {selectedOrder.order_status !== 'cancelled' && (
+                 <button 
+                  onClick={() => updateStatus(selectedOrder.id, 'cancelled')}
+                  className="px-8 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-lg hover:bg-rose-100 transition-all"
+                 >
+                   Batal
+                 </button>
+               )}
             </div>
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        .orders-page { max-width: 1200px; margin: 0 auto; }
-        .page-header { margin-bottom: 30px; }
-        .page-header p { color: var(--text-muted); font-size: 14px; }
-
-        .table-controls {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 15px 25px;
-          margin-bottom: 25px;
-          gap: 20px;
-        }
-        .search-box {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: rgba(255,255,255,0.05);
-          padding: 10px 15px;
-          border-radius: 12px;
-          flex: 1;
-        }
-        .search-box input {
-          background: transparent;
-          border: none;
-          color: #fff;
-          width: 100%;
-        }
-
-        .action-group { display: flex; gap: 10px; }
-        .export-btn, .notif-btn, .filter-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 10px 15px;
-          border-radius: 12px;
-          background: rgba(255,255,255,0.05);
-          color: var(--text-main);
-          font-weight: 600;
-          font-size: 14px;
-        }
-        .export-btn { background: rgba(16, 185, 129, 0.1); color: var(--accent-green); }
-        .notif-btn { background: rgba(245, 158, 11, 0.1); color: var(--primary); }
-        .export-btn:hover { background: rgba(16, 185, 129, 0.2); }
-
-        .orders-list {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-          gap: 20px;
-        }
-
-        .order-card {
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          transition: var(--transition);
-        }
-        .order-card.clickable { cursor: pointer; }
-        .order-card.clickable:hover { transform: translateY(-5px); background: rgba(255,255,255,0.08); }
-
-        .order-info { display: flex; justify-content: space-between; align-items: flex-start; }
-        .order-main h3 { font-size: 18px; margin-bottom: 4px; }
-        .customer-name { font-weight: 600; color: var(--text-main); }
-        .order-date { font-size: 12px; color: var(--text-muted); }
-
-        .order-status-badge {
-          font-size: 11px;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 20px;
-          text-transform: uppercase;
-        }
-
-        .order-items { display: flex; flex-wrap: wrap; gap: 8px; }
-        .item-tag {
-          font-size: 12px;
-          background: rgba(255,255,255,0.05);
-          padding: 4px 10px;
-          border-radius: 8px;
-          color: var(--text-muted);
-        }
-
-        .order-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding-top: 15px;
-          border-top: 1px solid var(--card-border);
-        }
-        .order-total span { display: block; font-size: 12px; color: var(--text-muted); }
-        .order-total strong { font-size: 16px; color: var(--primary); }
-
-        .status-select {
-          background: var(--bg);
-          border: 1px solid var(--card-border);
-          color: #fff;
-          padding: 6px 10px;
-          border-radius: 8px;
-          font-size: 13px;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.8);
-          backdrop-filter: blur(8px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          z-index: 2000;
-        }
-        .modal-content {
-          width: 100%;
-          max-width: 600px;
-          max-height: 90vh;
-          overflow-y: auto;
-          padding: 30px;
-          position: relative;
-        }
-        .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 25px;
-        }
-        .close-btn { background: transparent; color: var(--text-muted); }
-
-        .modal-body { display: flex; flex-direction: column; gap: 25px; }
-        .info-section, .address-section {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 20px;
-        }
-        .info-item { display: flex; gap: 12px; color: var(--text-muted); }
-        .info-item p { color: #fff; font-weight: 500; margin-top: 4px; }
-        .info-item label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .items-section h3 { font-size: 16px; margin-bottom: 15px; }
-        .items-list {
-          background: rgba(255,255,255,0.03);
-          border-radius: 12px;
-          padding: 20px;
-        }
-        .detail-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 10px 0;
-          border-bottom: 1px solid var(--card-border);
-        }
-        .detail-total {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 15px;
-          font-weight: 700;
-          color: var(--primary);
-          font-size: 18px;
-        }
-
-        .maps-link {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          padding: 15px;
-          background: var(--accent-blue);
-          color: #fff;
-          text-decoration: none;
-          border-radius: 12px;
-          font-weight: 600;
-          transition: var(--transition);
-        }
-        .maps-link:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4); }
-
-        .loading-state, .empty-state {
-          text-align: center;
-          padding: 50px;
-          color: var(--text-muted);
-        }
-
-        @media (max-width: 768px) {
-          .table-controls { flex-direction: column; align-items: stretch; }
-          .export-btn span { display: none; }
-          .modal-content { padding: 20px; }
-          .orders-list { grid-template-columns: 1fr; }
-        }
-      `}</style>
     </div>
   );
 }

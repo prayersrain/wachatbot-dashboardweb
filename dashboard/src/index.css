@@ -1,75 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-:root {
-  --primary: #f59e0b; /* Amber 500 */
-  --primary-hover: #d97706; /* Amber 600 */
-  --bg: #0f172a; /* Slate 900 */
-  --card-bg: rgba(30, 41, 59, 0.7); /* Slate 800 with transparency */
-  --card-border: rgba(255, 255, 255, 0.1);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --glass: rgba(255, 255, 255, 0.03);
-  --glass-blur: blur(12px);
-  --accent-blue: #3b82f6;
-  --accent-green: #10b981;
-  --accent-red: #ef4444;
-  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+@theme {
+  --color-primary: #D97706; /* Toast Amber/Brown */
+  --color-primary-light: #FEF3C7;
+  --color-secondary: #92400E; /* Dark Bread */
+  --color-bakery-bg: #FFF8F0; /* Soft Cream */
+  --color-bakery-card: #FFFFFF;
+  --color-bakery-sidebar: #FFFBF5;
+  --color-stone-text: #44403C;
+  --color-stone-muted: #A8A29E;
+  
+  --font-inter: "Inter", sans-serif;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
+@layer base {
+  body {
+    @apply bg-bakery-bg text-stone-text font-inter min-h-screen antialiased;
+  }
 }
 
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg);
-  color: var(--text-main);
-  min-height: 100vh;
-  overflow-x: hidden;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.1) 0px, transparent 50%);
+@layer components {
+  .glass-card {
+    @apply bg-white border border-stone-200 rounded-3xl shadow-sm transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply shadow-md border-stone-300;
+  }
+
+  .btn-primary {
+    @apply bg-primary hover:bg-secondary text-white px-6 py-3 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+  }
+
+  .input-field {
+    @apply w-full bg-white border border-stone-200 rounded-2xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all;
+  }
+
+  .badge {
+    @apply text-[10px] font-black uppercase px-2 py-0.5 rounded-full;
+  }
 }
 
-button {
-  cursor: pointer;
-  border: none;
-  outline: none;
-  font-family: inherit;
-  transition: var(--transition);
+/* Custom Scrollbar for Warm Theme */
+::-webkit-scrollbar {
+  width: 6px;
 }
-
-input {
-  font-family: inherit;
-  outline: none;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-/* Glassmorphism Classes */
-.glass-card {
-  background: var(--card-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--card-border);
-  border-radius: 20px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-}
-
-.glass-nav {
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border-top: 1px solid var(--card-border);
-}
-
-/* Typography Utilities */
-h1, h2, h3 { font-weight: 700; color: #fff; }
-.text-gradient {
-  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+::-webkit-scrollbar-thumb {
+  @apply bg-stone-200 rounded-full hover:bg-stone-300;
 }
 
 /* Animations */
@@ -79,122 +59,5 @@ h1, h2, h3 { font-weight: 700; color: #fff; }
 }
 
 .animate-fade {
-  animation: fadeIn 0.5s ease forwards;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--card-border);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-/* Mobile Bottom Nav Spacing */
-@media (max-width: 768px) {
-  .page-container {
-    padding-bottom: 90px;
-  }
-}
-
-/* Logo Styles */
-.brand-logo {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  object-fit: contain;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px;
-}
-
-.brand-logo-large {
-  width: 120px;
-  height: 120px;
-  border-radius: 24px;
-  margin-bottom: 1.5rem;
-  object-fit: contain;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 10px;
-}
-
-/* Compact Product Grid */
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-@media (max-width: 640px) {
-  .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-  }
-  
-  .product-card {
-    padding: 0.75rem !important;
-  }
-  
-  .product-image {
-    height: 100px !important;
-  }
-  
-  .product-info h3 {
-    font-size: 0.9rem !important;
-  }
-  
-  .product-price {
-    font-size: 0.8rem !important;
-  }
-  
-  .stock-badge {
-    font-size: 0.7rem !important;
-    padding: 2px 6px !important;
-  }
-}
-
-.product-image-container {
-  position: relative;
-  width: 100%;
-  height: 160px;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  background: rgba(0,0,0,0.2);
-}
-
-.product-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: var(--transition);
-}
-
-.image-upload-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: var(--transition);
-  cursor: pointer;
-}
-
-.product-image-container:hover .image-upload-overlay {
-  opacity: 1;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }

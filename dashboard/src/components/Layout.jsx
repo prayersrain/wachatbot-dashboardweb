@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Box, LogOut, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const NavItems = [
@@ -18,173 +18,85 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="layout">
+    <div className="flex min-h-screen bg-bakery-bg">
       {/* Sidebar - Desktop */}
-      <aside className="sidebar glass-card">
-        <div className="sidebar-header">
-          <img src="/logoyoyobolen.PNG" alt="Logo" className="brand-logo" />
-          <h2 className="text-gradient">Yoyo Backoffice</h2>
+      <aside className="hidden lg:flex w-72 h-[calc(100vh-32px)] fixed left-4 top-4 bg-bakery-sidebar border border-stone-200 rounded-[32px] flex-col p-8 z-50 shadow-sm">
+        <div className="flex items-center gap-3 pb-8 mb-4 border-b border-stone-100">
+          <div className="bg-white p-2 rounded-xl shadow-sm">
+            <img src="/logoyoyobolen.PNG" alt="Logo" className="w-10 h-10 object-contain" />
+          </div>
+          <div>
+            <h2 className="font-bold text-secondary text-lg leading-tight">Yoyo Bakery</h2>
+            <p className="text-xs text-stone-muted font-medium uppercase tracking-wider">Backoffice</p>
+          </div>
         </div>
         
-        <nav className="sidebar-nav">
+        <nav className="flex-1 space-y-2">
           {NavItems.map((item) => (
             <NavLink 
               key={item.path} 
               to={item.path} 
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+              className={({ isActive }) => `
+                flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group
+                ${isActive 
+                  ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                  : 'text-stone-text hover:bg-stone-100'
+                }
+              `}
             >
-              <item.icon size={20} />
-              <span>{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  <item.icon size={20} className={isActive ? 'text-white' : 'text-stone-muted group-hover:text-primary'} />
+                  <span className="font-semibold">{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <button onClick={handleLogout} className="logout-btn">
+        <button 
+          onClick={handleLogout} 
+          className="flex items-center gap-4 px-5 py-4 rounded-2xl text-rose-600 hover:bg-rose-50 transition-all duration-200 mt-auto font-semibold"
+        >
           <LogOut size={20} />
           <span>Keluar</span>
         </button>
       </aside>
 
       {/* Main Content */}
-      <main className="main-content page-container">
-        {children}
+      <main className="flex-1 lg:ml-80 p-4 md:p-8 pb-32 lg:pb-8">
+        <div className="max-w-6xl mx-auto animate-fade">
+          {children}
+        </div>
       </main>
 
       {/* Bottom Navigation - Mobile */}
-      <nav className="bottom-nav glass-nav">
+      <nav className="lg:hidden fixed bottom-6 left-6 right-6 h-20 bg-white/80 backdrop-blur-xl border border-stone-200 rounded-[28px] flex justify-around items-center px-4 z-1000 shadow-2xl">
         {NavItems.map((item) => (
           <NavLink 
             key={item.path} 
             to={item.path} 
-            className={({ isActive }) => `bottom-link ${isActive ? 'active' : ''}`}
+            className={({ isActive }) => `
+              flex flex-col items-center gap-1.5 transition-all duration-300 px-4 py-2 rounded-2xl
+              ${isActive ? 'text-primary scale-110' : 'text-stone-muted'}
+            `}
           >
-            <item.icon size={22} />
-            <span>{item.label}</span>
+            {({ isActive }) => (
+              <>
+                <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
-        <button onClick={handleLogout} className="bottom-link">
-          <LogOut size={22} />
-          <span>Keluar</span>
+        <button 
+          onClick={handleLogout} 
+          className="flex flex-col items-center gap-1.5 text-stone-muted px-4 py-2"
+        >
+          <LogOut size={24} />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Out</span>
         </button>
       </nav>
-
-      <style jsx>{`
-        .layout {
-          display: flex;
-          min-height: 100vh;
-        }
-
-        /* Sidebar Desktop */
-        .sidebar {
-          width: 260px;
-          height: calc(100vh - 40px);
-          position: fixed;
-          left: 20px;
-          top: 20px;
-          display: flex;
-          flex-direction: column;
-          padding: 30px 15px;
-          z-index: 100;
-        }
-
-        .sidebar-header {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 0 10px 30px;
-          border-bottom: 1px solid var(--card-border);
-          margin-bottom: 20px;
-        }
-
-        .logo-emoji { font-size: 24px; }
-        .sidebar-header h2 { font-size: 18px; }
-
-        .sidebar-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          flex: 1;
-        }
-
-        .nav-link {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 15px;
-          border-radius: 12px;
-          color: var(--text-muted);
-          text-decoration: none;
-          transition: var(--transition);
-        }
-
-        .nav-link:hover {
-          background: rgba(255, 255, 255, 0.05);
-          color: #fff;
-        }
-
-        .nav-link.active {
-          background: rgba(245, 158, 11, 0.15);
-          color: var(--primary);
-          font-weight: 600;
-        }
-
-        .logout-btn {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px 15px;
-          border-radius: 12px;
-          color: var(--accent-red);
-          background: transparent;
-          margin-top: auto;
-        }
-
-        .logout-btn:hover {
-          background: rgba(239, 68, 68, 0.1);
-        }
-
-        /* Main Content Area */
-        .main-content {
-          flex: 1;
-          margin-left: 300px;
-          padding: 40px 40px 40px 20px;
-        }
-
-        /* Bottom Nav Mobile */
-        .bottom-nav {
-          display: none;
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 75px;
-          justify-content: space-around;
-          align-items: center;
-          padding: 0 10px;
-          z-index: 1000;
-        }
-
-        .bottom-link {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          color: var(--text-muted);
-          text-decoration: none;
-          font-size: 11px;
-          background: transparent;
-        }
-
-        .bottom-link.active {
-          color: var(--primary);
-        }
-
-        @media (max-width: 1024px) {
-          .sidebar { display: none; }
-          .main-content { margin-left: 0; padding: 20px; }
-          .bottom-nav { display: flex; }
-        }
-      `}</style>
     </div>
   );
 }
