@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Package, 
   Edit3, 
@@ -14,8 +15,50 @@ import {
   Search,
   Tag
 } from 'lucide-react';
+import { SkeletonProduct } from '../components/Skeleton';
+
+// Lazy image component with blur placeholder + intersection observer
+function LazyImage({ src, alt, className = '' }) {
+  const [loaded, setLoaded] = useState(false);
+  const [inView, setInView] = useState(false);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    if (!imgRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+    observer.observe(imgRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={imgRef} className={`relative ${className}`}>
+      {/* Blur placeholder */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-stone-100 animate-pulse" />
+      )}
+      {inView && (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          className={`w-full h-full object-cover transition-all duration-500 ${loaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+        />
+      )}
+    </div>
+  );
+}
 
 export default function Products() {
+  const toast = useToast();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,10 +107,11 @@ export default function Products() {
 
       if (updateError) throw updateError;
 
+      toast.success('Foto produk berhasil diperbarui!');
       await fetchProducts();
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Gagal upload gambar. Pastikan Policy Storage di Supabase sudah diatur.');
+      toast.error('Gagal upload gambar. Pastikan Policy Storage di Supabase sudah diatur.');
     } finally {
       setUploadingId(null);
     }
@@ -80,7 +124,7 @@ export default function Products() {
 
   const saveEdit = async () => {
     if (!editForm.name || Number(editForm.price) <= 0) {
-      alert('Nama tidak boleh kosong dan harga harus lebih dari 0.');
+      toast.warning('Nama tidak boleh kosong dan harga harus lebih dari 0.');
       return;
     }
 
@@ -95,8 +139,9 @@ export default function Products() {
       .eq('id', editingId);
 
     if (error) {
-      alert('Gagal simpan: ' + error.message);
+      toast.error('Gagal simpan: ' + error.message);
     } else {
+      toast.success(`"${editForm.name}" berhasil diperbarui!`);
       setEditingId(null);
       fetchProducts();
     }
@@ -127,9 +172,7 @@ export default function Products() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
         {loading ? (
-          <div className="col-span-full py-20 text-center animate-pulse">
-             <p className="text-stone-muted font-black uppercase tracking-[0.2em] text-xs">Memuat Produk...</p>
-          </div>
+          [...Array(10)].map((_, i) => <SkeletonProduct key={i} />)
         ) : filteredProducts.length === 0 ? (
           <div className="col-span-full py-20 bg-white border-2 border-dashed border-stone-100 rounded-[40px] text-center">
             <Package size={48} className="mx-auto text-stone-200 mb-4" />
@@ -140,7 +183,7 @@ export default function Products() {
             <div key={product.id} className={`bg-white border transition-all duration-300 rounded-[32px] overflow-hidden group ${editingId === product.id ? 'border-primary ring-4 ring-primary/5' : 'border-stone-100 hover:border-stone-200 hover:shadow-xl'}`}>
               <div className="relative aspect-square bg-stone-50 overflow-hidden">
                 {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <LazyImage src={product.image_url} alt={product.name} className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-stone-200">
                     <Package size={40} strokeWidth={1.5} />

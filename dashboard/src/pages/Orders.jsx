@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../contexts/ToastContext';
 import { 
   Search, 
   Filter,
@@ -16,9 +17,14 @@ import {
   XCircle,
   Volume2,
   VolumeX,
-  ShoppingBag
+  ShoppingBag,
+  ChevronLeft,
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { SkeletonCard } from '../components/Skeleton';
 
 const STATUS_CONFIG = {
   waiting_payment: { label: 'Menunggu Bayar', color: '#F59E0B', icon: Clock },
@@ -31,27 +37,86 @@ const STATUS_CONFIG = {
 
 const ORDER_STATUSES = ['all', 'waiting_payment', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'];
 
+const DATE_FILTERS = [
+  { key: 'all', label: 'Semua' },
+  { key: 'today', label: 'Hari ini' },
+  { key: 'week', label: 'Minggu ini' },
+  { key: 'month', label: 'Bulan ini' },
+];
+
+const PAGE_SIZE = 20;
+
 export default function Orders() {
+  const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem('yoyo_sound') !== 'off';
+  });
+  const [dateFilter, setDateFilter] = useState('all');
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Confirm dialog state
+  const [confirmState, setConfirmState] = useState({ open: false, orderId: null, action: null, orderNumber: '' });
   
   const audioRef = useRef(new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3'));
 
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    switch (dateFilter) {
+      case 'today': {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return start.toISOString();
+      }
+      case 'week': {
+        const day = now.getDay();
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        const start = new Date(now.getFullYear(), now.getMonth(), diff);
+        start.setHours(0, 0, 0, 0);
+        return start.toISOString();
+      }
+      case 'month': {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        return start.toISOString();
+      }
+      default:
+        return null;
+    }
+  }, [dateFilter]);
+
   const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (fetchError) console.error('❌ Gagal ambil data pesanan:', fetchError);
-    else setOrders(data || []);
+
+    try {
+      // Build query for count
+      let countQuery = supabase.from('orders').select('*', { count: 'exact', head: true });
+      const dateStart = getDateRange();
+      if (dateStart) countQuery = countQuery.gte('created_at', dateStart);
+      if (activeFilter !== 'all') countQuery = countQuery.eq('order_status', activeFilter);
+      
+      const { count } = await countQuery;
+      setTotalCount(count || 0);
+
+      // Build query for data
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      let dataQuery = supabase.from('orders').select('*').order('created_at', { ascending: false }).range(from, to);
+      if (dateStart) dataQuery = dataQuery.gte('created_at', dateStart);
+      if (activeFilter !== 'all') dataQuery = dataQuery.eq('order_status', activeFilter);
+
+      const { data, error } = await dataQuery;
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (err) {
+      console.error('Gagal ambil data pesanan:', err);
+      toast.error('Gagal memuat pesanan');
+    }
     setLoading(false);
-  }, []);
+  }, [page, dateFilter, activeFilter, getDateRange]);
 
   const playNotification = useCallback(() => {
     if (soundEnabled) {
@@ -82,14 +147,39 @@ export default function Orders() {
     return () => supabase.removeChannel(channel);
   }, [fetchOrders, playNotification]);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [activeFilter, dateFilter, searchTerm]);
+
   const updateStatus = async (orderId, newStatus) => {
     const { error } = await supabase
       .from('orders')
       .update({ order_status: newStatus })
       .eq('id', orderId);
     
-    if (error) alert('Gagal update: ' + error.message);
-    else fetchOrders();
+    if (error) {
+      toast.error('Gagal update status: ' + error.message);
+    } else {
+      const label = STATUS_CONFIG[newStatus]?.label || newStatus;
+      toast.success(`Status berhasil diubah ke "${label}"`);
+      // Update selectedOrder if it's the current modal
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? { ...prev, order_status: newStatus } : null);
+      }
+      fetchOrders();
+    }
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmState.orderId && confirmState.action) {
+      updateStatus(confirmState.orderId, confirmState.action);
+    }
+    setConfirmState({ open: false, orderId: null, action: null, orderNumber: '' });
+  };
+
+  const askConfirm = (orderId, action, orderNumber) => {
+    setConfirmState({ open: true, orderId, action, orderNumber });
   };
 
   const exportToExcel = () => {
@@ -105,20 +195,18 @@ export default function Orders() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pesanan");
     XLSX.writeFile(wb, `Orders-${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('File Excel berhasil di-download!');
   };
 
+  // Client-side search filtering (on already paginated data)
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
       String(order.order_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(order.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = activeFilter === 'all' || order.order_status === activeFilter;
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
-  const getStatusCount = (status) => {
-    if (status === 'all') return orders.length;
-    return orders.filter(o => o.order_status === status).length;
-  };
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -129,7 +217,11 @@ export default function Orders() {
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              const newVal = !soundEnabled;
+              setSoundEnabled(newVal);
+              localStorage.setItem('yoyo_sound', newVal ? 'on' : 'off');
+            }}
             className={`p-3 rounded-2xl border transition-all ${soundEnabled ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-stone-100 border-stone-200 text-stone-400'}`}
             title={soundEnabled ? "Matikan Suara" : "Aktifkan Suara"}
           >
@@ -155,6 +247,25 @@ export default function Orders() {
           />
         </div>
 
+        {/* Date Range Filter */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <Calendar size={16} className="text-stone-300" />
+          {DATE_FILTERS.map(df => (
+            <button
+              key={df.key}
+              onClick={() => setDateFilter(df.key)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                dateFilter === df.key 
+                  ? 'bg-primary text-white shadow-md shadow-primary/20' 
+                  : 'bg-stone-50 text-stone-400 hover:bg-stone-100'
+              }`}
+            >
+              {df.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Status Filter */}
         <div className="flex flex-wrap gap-2">
           {ORDER_STATUSES.map(status => (
             <button
@@ -169,9 +280,6 @@ export default function Orders() {
               `}
             >
               <span>{status === 'all' ? 'Semua' : STATUS_CONFIG[status]?.label}</span>
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] ${activeFilter === status ? 'bg-white/20' : 'bg-stone-200 text-stone-500'}`}>
-                {getStatusCount(status)}
-              </span>
             </button>
           ))}
         </div>
@@ -180,9 +288,7 @@ export default function Orders() {
       {/* Orders Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading ? (
-          <div className="col-span-full py-20 text-center animate-pulse">
-            <p className="text-stone-muted font-black uppercase tracking-[0.2em] text-xs">Memuat Pesanan...</p>
-          </div>
+          [...Array(6)].map((_, i) => <SkeletonCard key={i} />)
         ) : filteredOrders.length === 0 ? (
           <div className="col-span-full py-20 bg-white border-2 border-dashed border-stone-100 rounded-[40px] text-center">
             <ShoppingBag size={48} className="mx-auto text-stone-200 mb-4" />
@@ -252,6 +358,29 @@ export default function Orders() {
           })
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="p-3 rounded-xl bg-white border border-stone-200 text-stone-text hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="text-xs font-black text-stone-muted uppercase tracking-widest">
+            Halaman {page + 1} dari {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="p-3 rounded-xl bg-white border border-stone-200 text-stone-text hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
 
       {/* Order Detail Modal */}
       {selectedOrder && (
@@ -332,7 +461,7 @@ export default function Orders() {
             <div className="flex flex-col md:flex-row gap-4">
                {selectedOrder.order_status !== 'completed' && (
                  <button 
-                  onClick={() => updateStatus(selectedOrder.id, 'completed')}
+                  onClick={() => askConfirm(selectedOrder.id, 'completed', selectedOrder.order_number)}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3"
                  >
                    <CheckCircle2 size={24} />
@@ -341,7 +470,7 @@ export default function Orders() {
                )}
                {selectedOrder.order_status !== 'cancelled' && (
                  <button 
-                  onClick={() => updateStatus(selectedOrder.id, 'cancelled')}
+                  onClick={() => askConfirm(selectedOrder.id, 'cancelled', selectedOrder.order_number)}
                   className="px-8 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-lg hover:bg-rose-100 transition-all"
                  >
                    Batal
@@ -351,6 +480,20 @@ export default function Orders() {
           </div>
         </div>
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.open}
+        title={confirmState.action === 'completed' ? 'Selesaikan Pesanan?' : 'Batalkan Pesanan?'}
+        message={confirmState.action === 'completed' 
+          ? `Tandai pesanan #${confirmState.orderNumber} sebagai selesai?`
+          : `Yakin ingin membatalkan pesanan #${confirmState.orderNumber}? Aksi ini tidak bisa dibatalkan.`
+        }
+        confirmLabel={confirmState.action === 'completed' ? 'Ya, Selesai' : 'Ya, Batalkan'}
+        variant={confirmState.action === 'completed' ? 'success' : 'danger'}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmState({ open: false, orderId: null, action: null, orderNumber: '' })}
+      />
     </div>
   );
 }

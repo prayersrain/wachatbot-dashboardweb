@@ -3,10 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Login from './components/Login';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Products from './pages/Products';
+import Customers from './pages/Customers';
+import Settings from './pages/Settings';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -41,14 +44,18 @@ function App() {
           path="/*" 
           element={
             session ? (
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/orders" element={<Orders />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
-              </Layout>
+              <ErrorBoundary>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/orders" element={<Orders />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/customers" element={<Customers />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Routes>
+                </Layout>
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" />
             )

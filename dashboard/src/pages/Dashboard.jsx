@@ -19,16 +19,17 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import { SkeletonStat, SkeletonChart } from '../components/Skeleton';
 
-const StatCard = ({ title, value, icon: Icon, color, trend }) => (
+const StatCard = ({ title, value, icon: Icon, color, trend, trendLabel }) => (
   <div className="bg-white border border-stone-100 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
     <div className="space-y-1">
       <p className="text-stone-muted text-xs font-bold uppercase tracking-widest">{title}</p>
       <h2 className="text-2xl font-black text-secondary tracking-tight group-hover:text-primary transition-colors">{value}</h2>
-      {trend !== undefined && (
+      {trend !== null && trend !== undefined && (
         <div className={`flex items-center gap-1 text-[10px] font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
           {trend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-          <span>{Math.abs(trend)}% vs kemarin</span>
+          <span>{Math.abs(trend)}% {trendLabel || 'vs kemarin'}</span>
         </div>
       )}
     </div>
@@ -43,7 +44,9 @@ export default function Dashboard() {
     todayRevenue: 0,
     monthRevenue: 0,
     totalOrders: 0,
-    activeCustomers: 0
+    activeCustomers: 0,
+    todayTrend: null,
+    monthTrend: null,
   });
   const [chartData, setChartData] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -51,9 +54,13 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
       const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const firstDayLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastDayLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -66,6 +73,22 @@ export default function Dashboard() {
       
       const todayRev = todayOrders?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
 
+      // 1b. Yesterday Revenue for trend comparison
+      const { data: yesterdayOrders } = await supabase
+        .from('orders')
+        .select('total_price')
+        .gte('created_at', yesterday.toISOString())
+        .lt('created_at', today.toISOString())
+        .eq('order_status', 'completed');
+      
+      const yesterdayRev = yesterdayOrders?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
+
+      // Calculate today trend
+      let todayTrend = null;
+      if (yesterdayRev > 0) {
+        todayTrend = Math.round(((todayRev - yesterdayRev) / yesterdayRev) * 100);
+      }
+
       // 2. Month Revenue
       const { data: monthOrders } = await supabase
         .from('orders')
@@ -74,6 +97,21 @@ export default function Dashboard() {
         .eq('order_status', 'completed');
       
       const monthRev = monthOrders?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
+
+      // 2b. Last Month Revenue for trend
+      const { data: lastMonthOrders } = await supabase
+        .from('orders')
+        .select('total_price')
+        .gte('created_at', firstDayLastMonth.toISOString())
+        .lte('created_at', lastDayLastMonth.toISOString())
+        .eq('order_status', 'completed');
+      
+      const lastMonthRev = lastMonthOrders?.reduce((acc, curr) => acc + (Number(curr.total_price) || 0), 0) || 0;
+
+      let monthTrend = null;
+      if (lastMonthRev > 0) {
+        monthTrend = Math.round(((monthRev - lastMonthRev) / lastMonthRev) * 100);
+      }
 
       // 3. Active Orders (Not Cancelled/Completed)
       const { count: orderCount } = await supabase
@@ -90,7 +128,9 @@ export default function Dashboard() {
         todayRevenue: todayRev,
         monthRevenue: monthRev,
         totalOrders: orderCount || 0,
-        activeCustomers: customerCount || 0
+        activeCustomers: customerCount || 0,
+        todayTrend,
+        monthTrend,
       });
 
       // 5. Real Sales Chart Data (Last 7 Days)
@@ -152,9 +192,18 @@ export default function Dashboard() {
   }, []);
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-96 gap-4">
-      <div className="w-12 h-12 border-4 border-stone-200 border-t-primary rounded-full animate-spin" />
-      <p className="text-stone-muted font-bold animate-pulse uppercase tracking-widest text-xs">Cooking Data...</p>
+    <div className="space-y-8 pb-10">
+      <header>
+        <h1 className="text-3xl font-black text-secondary tracking-tight">Halo, Admin! 👋</h1>
+        <p className="text-stone-muted font-medium mt-1">Cek performa Yoyo Bakery hari ini.</p>
+      </header>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => <SkeletonStat key={i} />)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2"><SkeletonChart /></div>
+        <div className="bg-bakery-sidebar border border-stone-200 p-8 rounded-[40px] shadow-sm animate-pulse" />
+      </div>
     </div>
   );
 
@@ -172,14 +221,16 @@ export default function Dashboard() {
           value={`Rp ${stats.todayRevenue.toLocaleString('id-ID')}`} 
           icon={DollarSign}
           color="#D97706"
-          trend={12}
+          trend={stats.todayTrend}
+          trendLabel="vs kemarin"
         />
         <StatCard 
           title="Bulan Ini" 
           value={`Rp ${stats.monthRevenue.toLocaleString('id-ID')}`} 
           icon={TrendingUp}
           color="#0EA5E9"
-          trend={8}
+          trend={stats.monthTrend}
+          trendLabel="vs bulan lalu"
         />
         <StatCard 
           title="Pesanan Aktif" 
