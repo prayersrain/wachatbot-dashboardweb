@@ -35,17 +35,16 @@ export default function Customers() {
 
       if (error) throw error;
 
-      // For each customer, get their order stats
+      // For each customer, get their order stats (semua order, bukan hanya completed)
       const enriched = await Promise.all((data || []).map(async (cust) => {
         const { data: orders } = await supabase
           .from('orders')
-          .select('total_price')
-          .eq('wa_number', cust.wa_number)
-          .eq('order_status', 'completed');
+          .select('total_price, order_status, items')
+          .eq('wa_number', cust.wa_number);
 
         const totalOrders = orders?.length || 0;
         const totalSpent = orders?.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0) || 0;
-        return { ...cust, totalOrders, totalSpent };
+        return { ...cust, totalOrders, totalSpent, lastOrders: orders || [] };
       }));
 
       setCustomers(enriched);

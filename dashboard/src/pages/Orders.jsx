@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
 import { 
@@ -152,6 +153,16 @@ export default function Orders() {
     setPage(0);
   }, [activeFilter, dateFilter, searchTerm]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (selectedOrder) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedOrder]);
+
   const updateStatus = async (orderId, newStatus) => {
     const { error } = await supabase
       .from('orders')
@@ -227,9 +238,13 @@ export default function Orders() {
           >
             {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
-          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95 text-sm">
-            <FileSpreadsheet size={18} />
-            <span>Rekap Excel</span>
+          <button onClick={exportToExcel} className="flex items-center gap-2.5 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg shadow-emerald-200 transition-all active:scale-95 text-sm">
+            <FileSpreadsheet size={20} />
+            <div className="text-left hidden sm:block">
+              <span className="block text-xs font-bold leading-tight">Download</span>
+              <span className="block text-[10px] opacity-80 leading-tight">Rekap Excel</span>
+            </div>
+            <span className="sm:hidden">Excel</span>
           </button>
         </div>
       </header>
@@ -383,18 +398,25 @@ export default function Orders() {
       )}
 
       {/* Order Detail Modal */}
-      {selectedOrder && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-2000 flex items-center justify-center p-4 md:p-6 animate-fade" onClick={() => setSelectedOrder(null)}>
-          <div className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[40px] shadow-2xl p-8 md:p-12 relative" onClick={e => e.stopPropagation()}>
-            <button className="absolute right-8 top-8 p-2 text-stone-300 hover:text-stone-900 transition-colors" onClick={() => setSelectedOrder(null)}>
+      {selectedOrder && createPortal(
+        <div 
+          className="fixed inset-0 bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4" 
+          style={{ zIndex: 9999 }}
+          onClick={() => setSelectedOrder(null)}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-[32px] shadow-2xl p-6 md:p-10 relative"
+            onClick={e => e.stopPropagation()}
+          >
+            <button className="absolute right-5 top-5 p-2 text-stone-300 hover:text-stone-900 transition-colors z-10" onClick={() => setSelectedOrder(null)}>
               <X size={24} />
             </button>
 
-            <div className="mb-10">
+            <div className="mb-8 md:mb-10">
               <p className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-2">Detail Pesanan</p>
-              <h2 className="text-4xl font-black text-secondary tracking-tighter">#{selectedOrder.order_number}</h2>
-              <div className="flex flex-wrap gap-4 mt-6">
-                <div className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100">
+              <h2 className="text-3xl md:text-4xl font-black text-secondary tracking-tighter">#{selectedOrder.order_number}</h2>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3 mt-5">
+                <div className="flex items-center gap-3 bg-stone-50 px-4 py-3 rounded-2xl border border-stone-100">
                   <User size={18} className="text-primary" />
                   <div>
                     <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest">Pelanggan</p>
@@ -405,7 +427,7 @@ export default function Orders() {
                   href={`https://wa.me/${selectedOrder.wa_number?.split('@')[0]}`} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="flex items-center gap-3 bg-stone-50 px-5 py-3 rounded-2xl border border-stone-100 hover:border-emerald-200 transition-all"
+                  className="flex items-center gap-3 bg-stone-50 px-4 py-3 rounded-2xl border border-stone-100 hover:border-emerald-200 transition-all"
                 >
                   <MessageSquare size={18} className="text-emerald-500" />
                   <div>
@@ -416,29 +438,27 @@ export default function Orders() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              <div className="space-y-4">
-                <div className="flex items-start gap-4">
-                  <MapPin size={20} className="text-primary shrink-0 mt-1" />
-                  <div>
-                    <p className="text-xs font-black text-stone-muted uppercase tracking-widest mb-1">Alamat Pengiriman</p>
-                    <p className="text-sm font-semibold text-secondary leading-relaxed">{selectedOrder.customer_address || '-'}</p>
-                    {selectedOrder.customer_address && (
-                      <a 
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.customer_address)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest mt-3 border-b-2 border-primary/20 hover:border-primary transition-all"
-                      >
-                        <ExternalLink size={12} />
-                        Buka Maps
-                      </a>
-                    )}
-                  </div>
+            <div className="space-y-6 mb-8 md:mb-10">
+              <div className="flex items-start gap-4">
+                <MapPin size={20} className="text-primary shrink-0 mt-1" />
+                <div>
+                  <p className="text-xs font-black text-stone-muted uppercase tracking-widest mb-1">Alamat Pengiriman</p>
+                  <p className="text-sm font-semibold text-secondary leading-relaxed">{selectedOrder.customer_address || '-'}</p>
+                  {selectedOrder.customer_address && (
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedOrder.customer_address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest mt-2 border-b-2 border-primary/20 hover:border-primary transition-all"
+                    >
+                      <ExternalLink size={12} />
+                      Buka Maps
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <div className="bg-bakery-bg p-6 rounded-[32px] border border-stone-100">
+              <div className="bg-bakery-bg p-5 md:p-6 rounded-[24px] border border-stone-100">
                 <p className="text-xs font-black text-stone-muted uppercase tracking-widest mb-4">Ringkasan Produk</p>
                 <div className="space-y-3">
                   {(typeof selectedOrder.items === 'string' ? JSON.parse(selectedOrder.items) : selectedOrder.items).map((item, idx) => (
@@ -450,35 +470,42 @@ export default function Orders() {
                       <span className="font-bold text-stone-muted text-xs">Rp {(item.price * item.qty).toLocaleString('id-ID')}</span>
                     </div>
                   ))}
-                  <div className="pt-4 mt-4 border-t border-stone-200 flex justify-between items-center">
+                  {selectedOrder.delivery_fee > 0 && (
+                    <div className="flex justify-between items-center text-sm pt-2 border-t border-stone-200/50">
+                      <span className="font-bold text-stone-muted">🚚 Ongkir</span>
+                      <span className="font-bold text-stone-muted text-xs">Rp {Number(selectedOrder.delivery_fee).toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  <div className="pt-4 mt-2 border-t-2 border-stone-200 flex justify-between items-center">
                     <span className="text-xs font-black text-secondary uppercase tracking-widest">Total Bayar</span>
-                    <span className="text-2xl font-black text-primary tracking-tighter">Rp {Number(selectedOrder.total_price).toLocaleString('id-ID')}</span>
+                    <span className="text-xl md:text-2xl font-black text-primary tracking-tighter">Rp {Number(selectedOrder.total_price).toLocaleString('id-ID')}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
                {selectedOrder.order_status !== 'completed' && (
                  <button 
                   onClick={() => askConfirm(selectedOrder.id, 'completed', selectedOrder.order_number)}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3"
                  >
-                   <CheckCircle2 size={24} />
-                   Selesaikan Pesanan
+                   <CheckCircle2 size={22} />
+                   Selesaikan
                  </button>
                )}
                {selectedOrder.order_status !== 'cancelled' && (
                  <button 
                   onClick={() => askConfirm(selectedOrder.id, 'cancelled', selectedOrder.order_number)}
-                  className="px-8 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-lg hover:bg-rose-100 transition-all"
+                  className="px-8 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-base hover:bg-rose-100 transition-all"
                  >
                    Batal
                  </button>
                )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirm Dialog */}
