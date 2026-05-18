@@ -10,6 +10,24 @@ const BASE_URL = config.lalamove.baseUrl;
  * Returns: { quotationId, total, currency, expiresAt, stops }
  */
 async function getQuotation(customerLat, customerLng, customerAddress) {
+  // Debug: Log raw values received
+  logger.info({ customerLat, customerLng, typeOfLat: typeof customerLat, typeOfLng: typeof customerLng }, '🗺️ Lalamove getQuotation input');
+
+  const storeLat = parseFloat(config.store.lat);
+  const storeLng = parseFloat(config.store.lng);
+  const custLat = parseFloat(customerLat);
+  const custLng = parseFloat(customerLng);
+
+  // Guard: jika koordinat NaN, jangan kirim ke API
+  if (isNaN(custLat) || isNaN(custLng) || isNaN(storeLat) || isNaN(storeLng)) {
+    logger.error({ storeLat, storeLng, custLat, custLng }, '❌ Koordinat invalid (NaN), skip Lalamove call');
+    return null;
+  }
+
+  // Lalamove regex hanya izinkan max 15 digit desimal, WA bisa kirim 16+
+  // Bulatkan ke 10 desimal agar aman
+  const formatCoord = (val) => parseFloat(val.toFixed(10)).toString();
+
   const path = '/v3/quotations';
   const body = {
     data: {
@@ -18,15 +36,15 @@ async function getQuotation(customerLat, customerLng, customerAddress) {
       stops: [
         {
           coordinates: { 
-            lat: config.store.lat.toString(), 
-            lng: config.store.lng.toString() 
+            lat: formatCoord(storeLat), 
+            lng: formatCoord(storeLng) 
           },
           address: config.store.address,
         },
         {
           coordinates: { 
-            lat: (customerLat || '').toString(), 
-            lng: (customerLng || '').toString() 
+            lat: formatCoord(custLat), 
+            lng: formatCoord(custLng) 
           },
           address: customerAddress || 'Lokasi Pelanggan',
         },

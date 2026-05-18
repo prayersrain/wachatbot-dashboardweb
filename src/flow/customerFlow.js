@@ -36,39 +36,56 @@ async function handleCustomerMessage(from, name, message) {
   // 1. SMART PARSE (3 Layer: Keyword → FAQ → AI)
   let aiData = null;
   if (text.trim().length > 0) {
-    aiData = await aiParseOrder(text);
+    aiData = await aiParseOrder(text, state);
   }
 
   // 2. LOGIC BERDASARKAN NIAT (INTENT)
   if (aiData) {
-    // --- REJECTED: Customer sudah diarahkan ke Shopee, hanya tolak usaha order ---
+    // --- REJECTED: Customer sudah diarahkan ke Shopee ---
     if (state === ST.REJECTED) {
-      // Biarkan THANKS, FAQ, QUESTION lewat — hanya block ORDER/CONFIRM/GREETING
-      if (aiData.intent === 'THANKS') {
-        return sender.sendText(from, aiData.answer || 'Sama-sama Kak! 😊🍞');
+      const shopeeUrl = config.shopeeUrl || 'https://shopee.co.id/yoyobakery';
+      const rejectionMsg = `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan di Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih! 😊🍞`;
+
+      // REGION intents — handle explicitly
+      if (aiData.intent === 'REGION_LUAR') {
+        return sender.sendText(from, `Iya betul Kak, untuk luar Jakarta belum bisa pesan via WhatsApp ya. 🙏\n\nSilakan pesan melalui Shopee kami:\n🛒 *${shopeeUrl}*\n\nDi Shopee sudah termasuk ongkir ke seluruh Indonesia. 📮`);
       }
-      if (aiData.intent === 'FAQ' && aiData.answer) {
+      if (aiData.intent === 'REGION_JAKARTA') {
+        // Customer ternyata di Jakarta — izinkan masuk kembali
+        const sessionData = session?.data || {};
+        return await handleRegionJakarta(from, sessionData.customerName || name);
+      }
+
+      // ORDER & CONFIRM — tolak tegas
+      const blockedIntents = ['ORDER', 'CONFIRM'];
+      if (blockedIntents.includes(aiData.intent)) {
+        return sender.sendText(from, rejectionMsg);
+      }
+
+      // THANKS, GREETING, FAQ, QUESTION, dll — jawab dari AI
+      // (AI sudah diberi konteks REJECTED, jadi jawabannya konsisten)
+      if (aiData.answer && aiData.answer.trim().length > 0) {
         return sender.sendText(from, aiData.answer);
       }
-      if (aiData.intent === 'QUESTION' && aiData.answer) {
-        return sender.sendText(from, aiData.answer);
-      }
-      // Semua intent lain (ORDER, GREETING, CONFIRM, dll) → tolak
-      return sender.sendText(from, `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan di Shopee kami:\n🛒 *${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}*\n\nTerima kasih! 😊🍞`);
+      return sender.sendText(from, `Ada yang bisa kami bantu lagi Kak? 😊\n\nUntuk pemesanan, silakan kunjungi Shopee kami ya:\n🛒 *${shopeeUrl}*`);
     }
 
     // --- GREETING & REGION HANYA BERLAKU DI AWAL ---
-    if (state === ST.IDLE || state === ST.NAME_PHONE || state === ST.REGION_CHECK) {
+    if (state === ST.IDLE) {
       if (aiData.intent === 'GREETING') {
         return await handleGreeting(from, name);
       }
-      if (state === ST.REGION_CHECK) {
-        if (aiData.intent === 'REGION_JAKARTA') {
-          return await handleRegionJakarta(from, name);
-        }
-        if (aiData.intent === 'REGION_LUAR') {
-          return await handleRegionLuar(from, name);
-        }
+    }
+    
+    if (state === ST.REGION_CHECK) {
+      if (aiData.intent === 'GREETING') {
+        return await handleGreeting(from, name);
+      }
+      if (aiData.intent === 'REGION_JAKARTA') {
+        return await handleRegionJakarta(from, name);
+      }
+      if (aiData.intent === 'REGION_LUAR') {
+        return await handleRegionLuar(from, name);
       }
     }
 
@@ -161,7 +178,7 @@ async function handleCustomerMessage(from, name, message) {
       return await handleOrderInput(from, name, text);
     case ST.LOCATION:
       if (message.type === 'location') {
-         return await handleLocation(from, name, message, state);
+         return await handleLocation(from, name, message);
       }
       return sender.sendLocationRequest(from, '📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya (Klik 📎 → Lokasi).');
     case ST.CONFIRM:
@@ -185,21 +202,31 @@ async function handleGreeting(from, name) {
   const existingCustomer = await db.getCustomerByPhone(from);
   
   if (existingCustomer && existingCustomer.name) {
-    // RETURNING CUSTOMER → skip tanya nama/HP, langsung tanya region
-    await upsertSession(from, ST.REGION_CHECK, { 
+    // RETURNING CUSTOMER → skip nama/HP & region check, langsung ke CATALOG
+    // (Jika pernah order = pasti Jakarta, karena luar Jakarta ditolak)
+    await upsertSession(from, ST.CATALOG, { 
       customerName: existingCustomer.name, 
       customerPhone: from.split('@')[0] 
     });
     
-    const msg = `${greeting}\n\n` +
-      `🎉 *Selamat datang kembali di Yoyo Bakery!* 🍞\n\n` +
-      `Hai Kak *${existingCustomer.name}*! Senang melayani Kakak lagi 😊\n\n` +
-      `Kakak berada di daerah mana ya?\n\n` +
-      `1️⃣ *Jakarta* (pesan via bot)\n` +
-      `2️⃣ *Luar Jakarta* (pesan via Shopee)\n\n` +
-      `_Balas dengan angka atau ketik daerahnya ya Kak_ 🙏`;
-    
-    return sender.sendText(from, msg);
+    await sender.sendText(from, 
+      `${greeting}\n\n` +
+      `🎉 *Selamat datang kembali, Kak ${existingCustomer.name}!* 🍞\n\n` +
+      `Senang melayani Kakak lagi 😊\n` +
+      `Yuk langsung pilih menu favorit Kakak 👇`
+    );
+
+    // Kirim gambar menu + instruksi pesan
+    await sendMenuImages(from, existingCustomer.name);
+    await new Promise(r => setTimeout(r, 1500));
+    return sender.sendText(from,
+      `📝 *Cara Pesan:*\n\n` +
+      `Ketik saja nama kue & jumlahnya!\n\n` +
+      `Contoh:\n` +
+      `• _"Nastar Classic 2"_\n` +
+      `• _"Bolen Coklat Keju 1, Stick Choco 2"_\n` +
+      `• _"Brownies 1 sama Marmer Cake 1"_`
+    );
   }
   
   // NEW CUSTOMER → tanya nama & HP dulu
@@ -311,9 +338,10 @@ async function handleRegionJakarta(from, name) {
 
 async function handleRegionLuar(from, name) {
   // Set state REJECTED agar bot terus menolak jika customer ngeyel
-  await upsertSession(from, ST.REJECTED);
-  
+  // Simpan data session lama (nama, HP) agar tidak hilang
   const session = await getSession(from);
+  await upsertSession(from, ST.REJECTED, session?.data || {});
+  
   const customerName = session?.data?.customerName || name;
   const shopeeUrl = config.shopeeUrl || 'https://shopee.co.id/yoyobakery';
   
@@ -564,6 +592,11 @@ async function handleLocation(from, name, message) {
   const lat = message.location.latitude;
   const lng = message.location.longitude;
   const addr = message.location.name || `${lat},${lng}`;
+
+  // Validasi koordinat sebelum kirim ke Lalamove
+  if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+    return sender.sendText(from, '⚠️ Lokasi yang dikirim tidak valid Kak. Coba kirim ulang lokasi lewat fitur *Kirim Lokasi Terkini* ya.');
+  }
 
   const q = await lalamove.getQuotation(lat, lng);
   if (!q) return sender.sendText(from, '⚠️ Gagal menghitung ongkir. Coba kirim ulang lokasi ya Kak.');

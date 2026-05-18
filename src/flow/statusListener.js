@@ -60,6 +60,11 @@ function startStatusListener() {
             }
 
             // Panggil Lalamove (Logika dari adminFlow.js)
+            if (!newOrder.customer_lat || !newOrder.customer_lng) {
+              logger.warn({ orderId: newOrder.id }, '⚠️ Koordinat customer kosong di database, skip Lalamove');
+              await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove untuk #${orderNum} karena koordinat lokasi customer kosong di database.`);
+              return;
+            }
             const q = await lalamove.getQuotation(newOrder.customer_lat, newOrder.customer_lng, newOrder.customer_address);
             if (!q) return;
 

@@ -60,7 +60,7 @@ async function cmdStatus(from) {
     return sender.sendText(from, '📊 *Status Hari Ini*\n\nBelum ada pesanan.');
   }
 
-  const stats = { new: 0, confirmed: 0, packing: 0, dispatched: 0, completed: 0, cancelled: 0 };
+  const stats = { new: 0, waiting_payment: 0, confirmed: 0, packing: 0, shipping: 0, completed: 0, cancelled: 0 };
   let totalRevenue = 0;
   const productionList = {}; // Untuk menghitung total item
 
@@ -77,10 +77,10 @@ async function cmdStatus(from) {
 
   let msg = `📊 *RINGKASAN HARI INI*\n`;
   msg += `--------------------------\n`;
-  msg += `🆕 Baru: ${stats.new}\n`;
+  msg += `🆕 Baru: ${stats.new + stats.waiting_payment}\n`;
   msg += `✅ Bayar: ${stats.confirmed}\n`;
   msg += `📦 Pack: ${stats.packing}\n`;
-  msg += `🚚 Kirim: ${stats.shipping || 0}\n`;
+  msg += `🚚 Kirim: ${stats.shipping}\n`;
   msg += `💰 Revenue: ${formatRupiah(totalRevenue)}\n\n`;
 
   msg += `👨‍🍳 *DAFTAR PRODUKSI:* \n`;
@@ -298,14 +298,15 @@ async function cmdCheck(from, orderNum) {
   const order = await db.getOrderByNumber(parseInt(orderNum));
   if (!order) return sender.sendText(from, `❌ Pesanan #${orderNum} tidak ditemukan.`);
 
-  const items = order.items.map((i) => `• ${i.name} x${i.qty} = ${formatRupiah(i.subtotal)}`).join('\n');
-  const statusMap = { new: '🆕 Baru', confirmed: '✅ Dikonfirmasi', packing: '📦 Dikemas', dispatched: '🚚 Dikirim', completed: '✔️ Selesai', cancelled: '❌ Batal' };
+  const itemsTotal = order.items.reduce((sum, i) => sum + ((i.price || 0) * (i.qty || 0)), 0);
+  const items = order.items.map((i) => `• ${i.name} x${i.qty} = ${formatRupiah((i.price || 0) * (i.qty || 0))}`).join('\n');
+  const statusMap = { new: '🆕 Baru', waiting_payment: '⏳ Tunggu Bayar', confirmed: '✅ Dikonfirmasi', packing: '📦 Dikemas', shipping: '🚚 Dikirim', completed: '✔️ Selesai', cancelled: '❌ Batal' };
 
   let msg = `📋 *Detail Pesanan #${order.order_number}*\n\n`;
   msg += `👤 ${order.customer_name}\n📱 wa.me/${order.wa_number}\n`;
   msg += `📍 ${order.customer_address || '-'}\n\n`;
   msg += `📦 *Item:*\n${items}\n\n`;
-  msg += `💰 Subtotal: ${formatRupiah(order.items_total)}\n`;
+  msg += `💰 Subtotal: ${formatRupiah(itemsTotal)}\n`;
   msg += `🚚 Ongkir: ${formatRupiah(order.delivery_fee)}\n`;
   msg += `💵 *Total: ${formatRupiah(order.total_price)}*\n\n`;
   msg += `📊 Status: ${statusMap[order.order_status] || order.order_status}\n`;

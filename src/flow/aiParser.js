@@ -7,7 +7,7 @@ const db = require('../database/supabase');
 // LAYER 1: KEYWORD MATCH (100% GRATIS)
 // ============================================================
 const GREETINGS = /^(halo|hai|hi|hey|hello|assalamualaikum|assalamu'alaikum|selamat\s*(pagi|siang|sore|malam)|p|permisi|kak|min)(\s*(kak|min|bang|pak|bu))?[\s!?.]*$/i;
-const ORDER_GREETINGS = /\b(mau\s*(pesan|pesen|order|beli)|pesan\s*dong|order\s*dong|beli\s*dong)\b/i;
+const ORDER_GREETINGS = /^\s*(aku\s+)?(mau\s*(pesan|pesen|order|beli)|pesan\s*dong|order\s*dong|beli\s*dong)(\s*(dong|kak|min|ya|yuk))?\s*[!?.]*$/i;
 const CONFIRMS = /^(iya|ya|yaa|yaaa|yoi|yup|yep|yes|ok|oke|okey|okay|sip|siap|benar|betul|setuju|konfirmasi|lanjut|deal|gas|mantap|boleh|bisa|acc|fix|jadi|ayo|let'?s?\s*go)[\s!?.]*$/i;
 const CANCELS = /^(batal|cancel|ga\s*jadi|gajadi|tidak|ngga|nggak|gak|no|nope|udah\s*deh|ga\s*usah|skip|stop)[\s!?.]*$/i;
 const BACKS = /^(kembali|balik|back|ubah|revisi|ganti|mundur|ulangi|koreksi|salah|edit)[\s!?.]*$/i;
@@ -17,12 +17,12 @@ const LUAR_JAKARTA = /^2$|^dua$|\b(luar\s*(jakarta|jkt|kota)?|bukan\s*(jakarta|j
 
 function quickIntentMatch(text) {
   const t = text.trim();
-  if (GREETINGS.test(t)) return { intent: 'GREETING', items: [] };
-  if (ORDER_GREETINGS.test(t)) return { intent: 'GREETING', items: [] };
+  if (GREETINGS.test(t)) return { intent: 'GREETING', items: [], answer: 'Halo Kak! Selamat datang di Yoyo Bakery 🍞 Ada yang bisa kami bantu hari ini?' };
+  if (ORDER_GREETINGS.test(t)) return { intent: 'GREETING', items: [], answer: 'Halo Kak! Siap, yuk langsung pesan! 😊' };
   if (JAKARTA_REGION.test(t)) return { intent: 'REGION_JAKARTA', items: [] };
   if (LUAR_JAKARTA.test(t)) return { intent: 'REGION_LUAR', items: [] };
-  if (CONFIRMS.test(t))  return { intent: 'CONFIRM', items: [] };
-  if (CANCELS.test(t))   return { intent: 'CANCEL', items: [] };
+  if (CONFIRMS.test(t))  return { intent: 'CONFIRM', items: [], answer: 'Siap Kak, pesanan dikonfirmasi! ✅' };
+  if (CANCELS.test(t))   return { intent: 'CANCEL', items: [], answer: 'Baik Kak, pesanan dibatalkan. 🙏' };
   if (BACKS.test(t))     return { intent: 'BACK', items: [] };
   if (THANKS.test(t))    return { intent: 'THANKS', items: [], answer: 'Sama-sama Kak! 😊 Senang bisa membantu. Jangan ragu hubungi kami lagi ya! 🍞' };
   return null;
@@ -56,7 +56,7 @@ function matchFAQ(text) {
 // ============================================================
 // LAYER 3: GEMINI AI
 // ============================================================
-async function callGeminiAI(text) {
+async function callGeminiAI(text, state = null) {
   const apiKey = config.geminiApiKey?.trim();
   if (!apiKey) {
     logger.error('❌ GEMINI_API_KEY tidak ditemukan di .env!');
@@ -87,8 +87,17 @@ async function callGeminiAI(text) {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: modelName });
 
+      // Build state context for AI
+      let stateContext = '';
+      if (state === 'REJECTED') {
+        stateContext = `\nKONTEKS PERCAKAPAN:\n- Pelanggan ini sudah diketahui dari LUAR JAKARTA dan sudah DITOLAK untuk pesan via WhatsApp.\n- JANGAN PERNAH bilang "bisa pesan via WA" atau sejenisnya.\n- Jika ditanya soal pemesanan, SELALU jawab bahwa WA hanya untuk Jakarta dan arahkan ke Shopee.\n- Tetap ramah dan sopan.\n`;
+      } else if (state === 'REGION_CHECK') {
+        stateContext = `\nKONTEKS PERCAKAPAN:\n- Sistem sedang menanyakan apakah pelanggan di Jakarta atau luar Jakarta.\n- Jika pelanggan menyebut daerah, tentukan apakah itu Jakarta atau luar Jakarta.\n`;
+      }
+
       const prompt = `
 Anda adalah asisten Yoyo Bakery yang ramah dan luwes. Analisis pesan: "${text}"
+${stateContext}
 
 PRODUK TERSEDIA:
 ${productList}
@@ -114,11 +123,11 @@ CONTOH:
 
 FORMAT JSON SAJA:
 {
-  "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|QUESTION|OTHER",
+  "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|GREETING|THANKS|QUESTION|FAQ|OTHER",
   "items": [{"name": "nama_roti", "qty": 2, "action": "add/update/remove"}],
   "customerName": "nama jika ada",
   "notes": "catatan jika ada",
-  "answer": "jawaban ramah jika intent QUESTION"
+  "answer": "WAJIB ISI! Jawaban ramah untuk SEMUA intent. Untuk ORDER bisa kosongkan, tapi untuk QUESTION/OTHER/GREETING/THANKS/FAQ/QUERY selalu isi jawaban yang informatif dan ramah."
 }
 
 PENTING:
@@ -127,6 +136,12 @@ PENTING:
 - Tetap keluarkan nama roti meskipun tidak ada di daftar.
 - Jika tidak ada jumlah, beri "qty": null.
 - Gunakan action: "remove" untuk pembatalan item.
+
+GAYA JAWABAN:
+- JANGAN selalu memulai jawaban dengan "Halo Kak!". Variasikan pembukaan secara ALAMI sesuai konteks pesan.
+- Contoh variasi: "Siap Kak!", "Boleh banget Kak!", "Oh iya Kak,", "Wah,", "Tentu Kak!", langsung jawab tanpa sapaan, dll.
+- "Halo Kak!" HANYA untuk intent GREETING (sapaan awal). Untuk QUESTION/FAQ/OTHER, langsung jawab inti pertanyaannya.
+- Jawaban harus ringkas, to the point, dan tidak bertele-tele.
 
 HANYA JSON.`;
 
@@ -144,9 +159,9 @@ HANYA JSON.`;
   return null;
 }
 
-async function aiParseOrder(text) {
+async function aiParseOrder(text, state = null) {
   if (!text || text.trim().length === 0) return null;
-  return quickIntentMatch(text) || matchFAQ(text) || await callGeminiAI(text);
+  return quickIntentMatch(text) || matchFAQ(text) || await callGeminiAI(text, state);
 }
 
 module.exports = { aiParseOrder };
