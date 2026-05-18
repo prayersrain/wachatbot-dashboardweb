@@ -153,7 +153,7 @@ async function connectToWhatsApp(handler) {
 
         const buffer = userBuffers.get(from);
         
-        // Set delay 2.5 detik untuk menunggu chat tambahan
+        // Set delay 3 detik untuk menunggu chat tambahan
         buffer.timer = setTimeout(() => {
           buffer.msg.text.body = buffer.text; // Update object dengan teks gabungan
           
@@ -167,7 +167,7 @@ async function connectToWhatsApp(handler) {
           
           userBuffers.delete(from);
           processQueue();
-        }, 2500); 
+        }, 3000); 
         
       } else {
         // Untuk gambar/lokasi, langsung masuk antrean tanpa delay

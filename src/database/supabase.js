@@ -34,6 +34,17 @@ async function upsertCustomer(waNumber, name) {
   return data;
 }
 
+async function getCustomerByPhone(waNumber) {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('wa_number', waNumber)
+    .single();
+
+  if (error || !data) return null;
+  return data;
+}
+
 // ==================== PRODUCTS ====================
 
 async function getProducts() {
@@ -409,6 +420,7 @@ async function getExpiredUnpaidOrders(daysOld, retryCount = 0) {
 module.exports = {
   supabase,
   upsertCustomer,
+  getCustomerByPhone,
   getProducts,
   getProductsByCategory,
   findProductByName,

@@ -6,17 +6,19 @@ const db = require('../database/supabase');
 // ============================================================
 // LAYER 1: KEYWORD MATCH (100% GRATIS)
 // ============================================================
-const GREETINGS = /^(halo|hai|hi|hey|hello|assalamualaikum|assalamu'alaikum|selamat\s*(pagi|siang|sore|malam)|p|permisi|kak|min|mau\s*pesan|mau\s*pesen|mau\s*order|mau\s*beli)(?:\s*(kak|min|bang|pak|bu))?[\s!?.]*$/i;
+const GREETINGS = /^(halo|hai|hi|hey|hello|assalamualaikum|assalamu'alaikum|selamat\s*(pagi|siang|sore|malam)|p|permisi|kak|min)(\s*(kak|min|bang|pak|bu))?[\s!?.]*$/i;
+const ORDER_GREETINGS = /\b(mau\s*(pesan|pesen|order|beli)|pesan\s*dong|order\s*dong|beli\s*dong)\b/i;
 const CONFIRMS = /^(iya|ya|yaa|yaaa|yoi|yup|yep|yes|ok|oke|okey|okay|sip|siap|benar|betul|setuju|konfirmasi|lanjut|deal|gas|mantap|boleh|bisa|acc|fix|jadi|ayo|let'?s?\s*go)[\s!?.]*$/i;
 const CANCELS = /^(batal|cancel|ga\s*jadi|gajadi|tidak|ngga|nggak|gak|no|nope|udah\s*deh|ga\s*usah|skip|stop)[\s!?.]*$/i;
 const BACKS = /^(kembali|balik|back|ubah|revisi|ganti|mundur|ulangi|koreksi|salah|edit)[\s!?.]*$/i;
 const THANKS = /^(makasih|terima\s*kasih|thanks|thank\s*you|thx|tq|tengkyu|nuhun|matur\s*nuwun)(?:\s*(banyak|banget))?(?:\s*(kak|min|bang|pak|bu|ya))?[\s!?.]*$/i;
-const JAKARTA_REGION = /^1$|^satu$|\b(jakarta|jkt|jaksel|jakbar|jaktim|jakpus|jakut|jabodetabek|tangerang|tangsel|bekasi|depok|bogor)\b/i;
-const LUAR_JAKARTA = /^2$|^dua$|\b(luar\s*(jakarta|jkt|kota)?|bukan\s*(jakarta|jkt)|daerah|luar|bandung|surabaya|medan|semarang|jogja|bali|makassar)\b/i;
+const JAKARTA_REGION = /^1$|^satu$|\b(jakarta|jkt|jaksel|jakbar|jaktim|jakpus|jakut)\b/i;
+const LUAR_JAKARTA = /^2$|^dua$|\b(luar\s*(jakarta|jkt|kota)?|bukan\s*(jakarta|jkt)|daerah|luar|bandung|surabaya|medan|semarang|jogja|bali|makassar|tangerang|tangsel|bekasi|depok|bogor|jabodetabek)\b/i;
 
 function quickIntentMatch(text) {
   const t = text.trim();
   if (GREETINGS.test(t)) return { intent: 'GREETING', items: [] };
+  if (ORDER_GREETINGS.test(t)) return { intent: 'GREETING', items: [] };
   if (JAKARTA_REGION.test(t)) return { intent: 'REGION_JAKARTA', items: [] };
   if (LUAR_JAKARTA.test(t)) return { intent: 'REGION_LUAR', items: [] };
   if (CONFIRMS.test(t))  return { intent: 'CONFIRM', items: [] };
@@ -33,7 +35,7 @@ const FAQ_DATA = [
   { keywords: ['jam', 'buka', 'operasional'], answer: 'Senin - Sabtu: 08.00 - 20.00 WIB, Minggu: 09.00 - 18.00 WIB. 😊' },
   { keywords: ['alamat', 'dimana', 'posisi'], answer: `📍 Alamat: ${config.store.address} 🚚` },
   { keywords: ['bayar', 'transfer', 'bca'], answer: `💳 Rek BCA: ${config.payment.bcaNumber} a/n ${config.payment.bcaName}.` },
-  { keywords: ['ongkir', 'delivery'], answer: '🚚 Ongkir kurir Lalamove sesuai jarak. Kirim shareloc aja Kak nanti dihitung otomatis!' },
+  { keywords: ['ongkir', 'delivery'], answer: '🚚 Ongkir kurir Lalamove sesuai jarak (khusus area Jakarta). Kirim shareloc aja Kak nanti dihitung otomatis!' },
   { keywords: ['halal', 'bpom'], answer: '☪️ Produk kami 100% HALAL dan berkualitas Kak. 🙏' },
   { keywords: ['promo', 'diskon'], answer: '🎉 Cek promo terbaru ke Admin ya Kak! Pesan banyak ada harga spesial. 😊' },
   { keywords: ['po', 'preorder'], answer: '📋 Beberapa produk PO 1-2 hari karena dibuat fresh. 😊' },
@@ -91,10 +93,24 @@ Anda adalah asisten Yoyo Bakery yang ramah dan luwes. Analisis pesan: "${text}"
 PRODUK TERSEDIA:
 ${productList}
 
+ATURAN PRODUK (WAJIB DIIKUTI):
+- Bolen: isi 10 pcs per kotak (semua varian bolen)
+- Roll Cake: isi 10 pcs per kotak (semua varian roll)
+- Roti: isi 4 pcs per kotak
+- Mix HANYA tersedia untuk Roti Sisir, pilihannya: full Coklat ATAU full Keju (masing-masing 2 kotak, jadi 2-2)
+- JANGAN mengarang aturan mix untuk produk selain Roti Sisir
+
+ATURAN PENTING:
+- Pemesanan via WhatsApp HANYA untuk area Jakarta. BUKAN Jabodetabek, BUKAN Tangerang/Bekasi/Depok/Bogor.
+- Jika customer bertanya apakah bisa pesan via WA untuk luar Jakarta, TOLAK dengan sopan. Arahkan ke Shopee.
+- Jangan pernah bilang "bisa pesan via WA" untuk daerah luar Jakarta.
+- Jika customer ngeyel mau pesan via WA padahal luar Jakarta, tetap tolak dan arahkan ke Shopee.
+
 CONTOH:
 1. User: "nstr 2 dan bln 4 ya" -> {"intent": "ORDER", "items": [{"name": "nastar", "qty": 2, "action": "add"}, {"name": "bolen", "qty": 4, "action": "add"}]}
 2. User: "gajadi nastar, ganti lidah kucing 1" -> {"intent": "ORDER", "items": [{"name": "nastar", "qty": 0, "action": "remove"}, {"name": "lidah kucing", "qty": 1, "action": "add"}]}
 3. User: "pesen nastar" -> {"intent": "ORDER", "items": [{"name": "nastar", "qty": null, "action": "add"}]}
+4. User: "lewat wa gabisa kak?" (konteks luar Jakarta) -> {"intent": "QUESTION", "items": [], "answer": "Maaf Kak, pemesanan via WhatsApp hanya untuk area Jakarta ya. Untuk luar Jakarta, Kakak bisa pesan melalui Shopee kami. 🙏"}
 
 FORMAT JSON SAJA:
 {
