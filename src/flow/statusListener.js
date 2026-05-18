@@ -88,7 +88,7 @@ function startStatusListener() {
               await sender.sendText(waNumber, `🚚 *Pesanan #${orderNum} sedang dikirim!*\n\n${result.shareLink ? `🔗 Track kurir: ${result.shareLink}` : 'Kurir sedang dalam perjalanan.'}\n\nDitunggu rotinya ya Kak! 😊`);
               
               // Notif Admin
-              await sender.sendText(config.adminPhone, `📢 *INFO DASHBOARD*\n\nKurir Lalamove untuk #${orderNum} sudah dipanggil otomatis via Website. 🚚`);
+              await sender.sendText(config.adminPhone, `📢 *INFO DASHBOARD*\n\nKurir Lalamove untuk #${orderNum} sudah dipanggil otomatis via Website. 🚚\n\n🔗 Tracking: ${result.shareLink || '-'}`);
             }
           }
 

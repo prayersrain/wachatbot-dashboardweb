@@ -416,6 +416,35 @@ async function getExpiredUnpaidOrders(daysOld, retryCount = 0) {
     return [];
   }
 }
+// ==================== STORAGE ====================
+
+async function uploadPaymentProof(orderNumber, buffer, mimeType = 'image/jpeg') {
+  try {
+    const ext = mimeType.split('/')[1] || 'jpg';
+    const fileName = `order_${orderNumber}_${Date.now()}.${ext}`;
+    
+    const { data, error } = await supabase.storage
+      .from('receipts')
+      .upload(fileName, buffer, {
+        contentType: mimeType,
+        upsert: true
+      });
+
+    if (error) {
+      logger.error({ error: error.message }, '❌ uploadPaymentProof error');
+      return null;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('receipts')
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    logger.error({ error: err.message }, '❌ uploadPaymentProof exception');
+    return null;
+  }
+}
 
 module.exports = {
   supabase,
@@ -442,4 +471,5 @@ module.exports = {
   getGlobalSetting,
   setGlobalSetting,
   hasPreviousOrders,
+  uploadPaymentProof,
 };

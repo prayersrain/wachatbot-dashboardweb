@@ -274,17 +274,10 @@ async function cmdDispatch(from, orderNum) {
   // Notify admin
   await sender.sendText(from, `✅ Kurir dipanggil untuk #${orderNum}!\n\n🔗 Tracking: ${result.shareLink || 'Sedang diproses'}\n📊 Status: ${result.status}`);
 
-  // Resolve Customer Number
-  let customerJid = order.wa_number;
-  if (order.notes) {
-    const match = order.notes.match(/\(HP:\s*(\d+)\)/);
-    if (match) customerJid = match[1];
-  }
-
   // Notify customer
-  logger.info({ to: customerJid }, '📤 Mengirim notifikasi kirim ke pelanggan');
+  logger.info({ to: order.wa_number }, '📤 Mengirim notifikasi kirim ke pelanggan');
   await sender.sendText(
-    customerJid,
+    order.wa_number,
     `🚚 *Pesanan #${order.order_number} sedang dalam perjalanan!*\n\n${result.shareLink ? `🔗 Track kurir: ${result.shareLink}` : 'Kurir sedang dalam perjalanan.'}\n\nDitunggu rotinya ya Kak! 😊`
   );
 }

@@ -6,9 +6,9 @@ const userActivity = new Map();
 const userLocks = new Map();
 
 // Configuration
-const MAX_MESSAGES_PER_WINDOW = 3; // Kurangi dari 5 menjadi 3
+const MAX_MESSAGES_PER_WINDOW = 5; // Dinaikkan untuk TikTok Live
 const WINDOW_MS = 30000; // 30 seconds
-const BURST_THRESHOLD = 7; // Kurangi dari 10 menjadi 7
+const BURST_THRESHOLD = 12; // Dinaikkan untuk TikTok Live
 const BURST_WINDOW_MS = 60000; // 60 seconds
 const BLOCK_DURATION_MS = 120000; // 2 minutes
 

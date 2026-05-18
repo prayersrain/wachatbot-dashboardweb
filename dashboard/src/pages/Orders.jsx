@@ -482,6 +482,22 @@ export default function Orders() {
                   </div>
                 </div>
               </div>
+
+              {selectedOrder.payment_proof_url && (
+                <div className="bg-stone-50 p-5 rounded-[24px] border border-stone-100 flex flex-col gap-3">
+                  <p className="text-xs font-black text-stone-muted uppercase tracking-widest flex items-center gap-2">
+                    📸 Bukti Transfer
+                  </p>
+                  <a href={selectedOrder.payment_proof_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-stone-200 hover:opacity-90 transition-opacity">
+                    <img 
+                      src={selectedOrder.payment_proof_url} 
+                      alt="Bukti Transfer" 
+                      className="w-full h-auto object-cover max-h-64"
+                      loading="lazy"
+                    />
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -494,14 +510,12 @@ export default function Orders() {
                    Selesaikan
                  </button>
                )}
-               {selectedOrder.order_status !== 'cancelled' && (
-                 <button 
-                  onClick={() => askConfirm(selectedOrder.id, 'cancelled', selectedOrder.order_number)}
-                  className="px-8 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-base hover:bg-rose-100 transition-all"
+               <button 
+                  onClick={() => setSelectedOrder(null)}
+                  className="px-8 py-4 bg-stone-100 text-stone-500 rounded-2xl font-black text-base hover:bg-stone-200 transition-all"
                  >
-                   Batal
+                   Tutup
                  </button>
-               )}
             </div>
           </div>
         </div>,

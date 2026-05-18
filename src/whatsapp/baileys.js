@@ -17,32 +17,71 @@ let onMessageCallback;
 const userBuffers = new Map();
 
 /**
- * Message Queue Logic
+ * Message Queue Logic (Parallel Per-User)
  */
-const MAX_QUEUE_SIZE = 200;
-const messageQueue = [];
-let isProcessing = false;
+const MAX_QUEUE_SIZE = 500;
+let totalQueueSize = 0;
+const userQueues = new Map();
+const processingUsers = new Set();
 
-async function processQueue() {
-  if (isProcessing || messageQueue.length === 0) return;
-  isProcessing = true;
+async function processUserQueue(from) {
+  if (processingUsers.has(from)) return;
+  processingUsers.add(from);
 
   try {
-    while (messageQueue.length > 0) {
-      const { from, name, normalizedMsg } = messageQueue.shift();
-      try {
-        if (onMessageCallback) {
-          lockUser(from);
-          await onMessageCallback(from, name, normalizedMsg);
+    const queue = userQueues.get(from);
+    while (queue && queue.length > 0) {
+      // 1. Batch semua pesan teks berturut-turut untuk menghindari SPAM multiple bubbles
+      if (queue[0].normalizedMsg.type === 'text') {
+        let batchedText = '';
+        let firstMsgObj = null;
+        let firstName = null;
+
+        while (queue.length > 0 && queue[0].normalizedMsg.type === 'text') {
+          const item = queue.shift();
+          totalQueueSize--;
+          
+          if (!firstMsgObj) {
+            firstMsgObj = item.normalizedMsg;
+            firstName = item.name;
+            batchedText = item.normalizedMsg.text.body;
+          } else {
+            batchedText += '\n' + item.normalizedMsg.text.body;
+          }
         }
-      } catch (err) {
-        logger.error({ err, from }, '❌ Error handling message in queue');
-      } finally {
-        unlockUser(from);
+
+        firstMsgObj.text.body = batchedText;
+        try {
+          if (onMessageCallback) {
+            lockUser(from);
+            await onMessageCallback(from, firstName, firstMsgObj);
+          }
+        } catch (err) {
+          logger.error({ err, from }, '❌ Error handling message in queue');
+        } finally {
+          unlockUser(from);
+        }
+      } else {
+        // 2. Proses pesan non-text (gambar, lokasi, dll) satu per satu
+        const { name, normalizedMsg } = queue.shift();
+        totalQueueSize--;
+        try {
+          if (onMessageCallback) {
+            lockUser(from);
+            await onMessageCallback(from, name, normalizedMsg);
+          }
+        } catch (err) {
+          logger.error({ err, from }, '❌ Error handling message in queue');
+        } finally {
+          unlockUser(from);
+        }
       }
     }
   } finally {
-    isProcessing = false;
+    processingUsers.delete(from);
+    if (userQueues.has(from) && userQueues.get(from).length === 0) {
+      userQueues.delete(from);
+    }
   }
 }
 
@@ -130,10 +169,17 @@ async function connectToWhatsApp(handler) {
         normalizedMsg.type = 'image';
       }
 
-      if (messageQueue.length >= MAX_QUEUE_SIZE) {
-        logger.warn({ from, queueSize: messageQueue.length }, '⚠️ Queue penuh, pesan di-skip');
+      if (totalQueueSize >= MAX_QUEUE_SIZE) {
+        logger.warn({ from, totalQueueSize }, '⚠️ Queue penuh, pesan di-skip');
         continue;
       }
+      
+      const pushToQueue = (f, n, msg) => {
+        if (!userQueues.has(f)) userQueues.set(f, []);
+        userQueues.get(f).push({ name: n, normalizedMsg: msg });
+        totalQueueSize++;
+        processUserQueue(f);
+      };
       
       // Message Debouncing (Buffering) untuk menggabungkan chat yang beruntun
       if (normalizedMsg.type === 'text') {
@@ -156,23 +202,13 @@ async function connectToWhatsApp(handler) {
         // Set delay 3 detik untuk menunggu chat tambahan
         buffer.timer = setTimeout(() => {
           buffer.msg.text.body = buffer.text; // Update object dengan teks gabungan
-          
-          // Setelah digabung, masukkan ke antrean utama
-          const existingIndex = messageQueue.findIndex(m => m.from === from);
-          if (existingIndex !== -1) {
-            messageQueue[existingIndex] = { from, name, normalizedMsg: buffer.msg };
-          } else {
-            messageQueue.push({ from, name, normalizedMsg: buffer.msg });
-          }
-          
           userBuffers.delete(from);
-          processQueue();
+          pushToQueue(from, name, buffer.msg);
         }, 3000); 
         
       } else {
         // Untuk gambar/lokasi, langsung masuk antrean tanpa delay
-        messageQueue.push({ from, name, normalizedMsg });
-        processQueue();
+        pushToQueue(from, name, normalizedMsg);
       }
     }
   });
