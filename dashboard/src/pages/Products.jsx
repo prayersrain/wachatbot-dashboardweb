@@ -227,7 +227,7 @@ export default function Products() {
                       type="text"
                       className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm font-bold outline-none focus:border-primary"
                       value={editForm.name}
-                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                     />
                   ) : (
                     <h3 className="font-black text-secondary group-hover:text-primary transition-colors truncate">{product.name}</h3>
@@ -241,7 +241,7 @@ export default function Products() {
                           type="number" 
                           className="w-full bg-stone-50 border border-stone-200 rounded-xl py-2 pl-8 pr-2 text-sm font-bold outline-none focus:border-primary"
                           value={editForm.price} 
-                          onChange={(e) => setEditForm({...editForm, price: e.target.value})}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, price: e.target.value }))}
                         />
                       </div>
                     </div>
@@ -256,7 +256,7 @@ export default function Products() {
                     <select 
                       className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-primary appearance-none cursor-pointer"
                       value={editForm.stock_status} 
-                      onChange={(e) => setEditForm({...editForm, stock_status: e.target.value})}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, stock_status: e.target.value }))}
                     >
                       <option value="ready">Ready Stock</option>
                       <option value="po">Pre-Order (PO)</option>
