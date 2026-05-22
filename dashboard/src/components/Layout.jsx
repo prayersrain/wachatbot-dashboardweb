@@ -1,10 +1,11 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, Box, LogOut, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Box, LogOut, Users, Settings, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const NavItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/inbox', label: 'Inbox', icon: MessageCircle },
   { path: '/orders', label: 'Pesanan', icon: ShoppingBag },
   { path: '/products', label: 'Produk', icon: Box },
   { path: '/customers', label: 'Pelanggan', icon: Users },

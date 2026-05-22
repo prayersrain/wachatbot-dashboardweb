@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
-import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
 
 // Defined OUTSIDE the component to avoid re-creation on every render
 const SectionCard = ({ icon: Icon, title, children }) => (
@@ -25,6 +25,67 @@ export default function Settings() {
   });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [faqs, setFaqs] = useState([]);
+  const [loadingFaqs, setLoadingFaqs] = useState(true);
+  const [editingFaq, setEditingFaq] = useState(null);
+  const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
+  const [showAddFaq, setShowAddFaq] = useState(false);
+
+  useEffect(() => {
+    fetchFaqs();
+  }, []);
+
+  const fetchFaqs = async () => {
+    try {
+      const { data, error } = await supabase.from('faqs').select('*').order('created_at', { ascending: true });
+      if (error) throw error;
+      setFaqs(data || []);
+    } catch (err) {
+      toast.error('Gagal memuat FAQ');
+    } finally {
+      setLoadingFaqs(false);
+    }
+  };
+
+  const handleAddFaq = async (e) => {
+    e.preventDefault();
+    if (!newFaq.question || !newFaq.answer) return;
+    try {
+      const { error } = await supabase.from('faqs').insert([newFaq]);
+      if (error) throw error;
+      toast.success('FAQ berhasil ditambahkan');
+      setNewFaq({ question: '', answer: '' });
+      setShowAddFaq(false);
+      fetchFaqs();
+    } catch (err) {
+      toast.error('Gagal menambah FAQ');
+    }
+  };
+
+  const handleUpdateFaq = async (id, question, answer) => {
+    try {
+      const { error } = await supabase.from('faqs').update({ question, answer }).eq('id', id);
+      if (error) throw error;
+      toast.success('FAQ berhasil diupdate');
+      setEditingFaq(null);
+      fetchFaqs();
+    } catch (err) {
+      toast.error('Gagal mengupdate FAQ');
+    }
+  };
+
+  const handleDeleteFaq = async (id) => {
+    if (!window.confirm('Yakin ingin menghapus FAQ ini?')) return;
+    try {
+      const { error } = await supabase.from('faqs').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('FAQ berhasil dihapus');
+      fetchFaqs();
+    } catch (err) {
+      toast.error('Gagal menghapus FAQ');
+    }
+  };
 
   const toggleSound = () => {
     const newVal = !soundEnabled;
@@ -130,6 +191,92 @@ export default function Settings() {
             {changingPassword ? 'Mengubah...' : 'Simpan Password Baru'}
           </button>
         </form>
+      </SectionCard>
+
+      {/* FAQ Management */}
+      <SectionCard icon={MessageCircleQuestion} title="Pengetahuan AI (FAQ)">
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-xs text-stone-muted font-medium">Pengetahuan tambahan untuk bot AI.</p>
+            <button 
+              onClick={() => setShowAddFaq(!showAddFaq)}
+              className="flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-secondary transition-colors"
+            >
+              <Plus size={14} /> Tambah FAQ
+            </button>
+          </div>
+
+          {showAddFaq && (
+            <form onSubmit={handleAddFaq} className="bg-stone-50 p-4 rounded-2xl border border-stone-200 space-y-3">
+              <input 
+                type="text" 
+                placeholder="Pertanyaan (Contoh: Apa bisa bayar COD?)" 
+                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                value={newFaq.question}
+                onChange={e => setNewFaq({ ...newFaq, question: e.target.value })}
+                required
+              />
+              <textarea 
+                placeholder="Jawaban (Contoh: Maaf Kak, saat ini kami hanya menerima transfer bank.)" 
+                className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm h-20 focus:outline-none focus:border-primary resize-none"
+                value={newFaq.answer}
+                onChange={e => setNewFaq({ ...newFaq, answer: e.target.value })}
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowAddFaq(false)} className="px-3 py-1.5 text-xs font-bold text-stone-500 hover:text-stone-700">Batal</button>
+                <button type="submit" className="bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-secondary">Simpan</button>
+              </div>
+            </form>
+          )}
+
+          {loadingFaqs ? (
+            <p className="text-sm text-stone-400">Memuat FAQ...</p>
+          ) : faqs.length === 0 ? (
+            <p className="text-sm text-stone-400">Belum ada data FAQ.</p>
+          ) : (
+            <div className="space-y-3 mt-4">
+              {faqs.map(faq => (
+                <div key={faq.id} className="bg-stone-50 border border-stone-100 rounded-2xl p-4">
+                  {editingFaq?.id === faq.id ? (
+                    <div className="space-y-3">
+                      <input 
+                        type="text" 
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm"
+                        value={editingFaq.question}
+                        onChange={e => setEditingFaq({ ...editingFaq, question: e.target.value })}
+                      />
+                      <textarea 
+                        className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-sm h-20 resize-none"
+                        value={editingFaq.answer}
+                        onChange={e => setEditingFaq({ ...editingFaq, answer: e.target.value })}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setEditingFaq(null)} className="flex items-center gap-1 text-xs font-bold text-stone-500 hover:text-stone-700">
+                          <X size={14} /> Batal
+                        </button>
+                        <button onClick={() => handleUpdateFaq(faq.id, editingFaq.question, editingFaq.answer)} className="flex items-center gap-1 text-xs font-bold text-primary hover:text-secondary">
+                          <Save size={14} /> Simpan
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-bold text-sm text-secondary">Q: {faq.question}</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingFaq(faq)} className="text-stone-400 hover:text-primary"><Edit2 size={14} /></button>
+                          <button onClick={() => handleDeleteFaq(faq.id)} className="text-stone-400 hover:text-rose-500"><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-stone-600 whitespace-pre-wrap">A: {faq.answer}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </SectionCard>
 
       {/* About */}

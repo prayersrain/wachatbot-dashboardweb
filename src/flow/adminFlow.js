@@ -23,6 +23,8 @@ async function handleAdminCommand(from, text) {
       return cmdStruk(from, arg);
     case '/kirim':
       return cmdDispatch(from, arg);
+    case '/batal_kurir':
+      return cmdCancelCourier(from, arg);
     case '/cek':
       return cmdCheck(from, arg);
     case '/bayar':
@@ -424,6 +426,36 @@ async function cmdUpdateStockType(from, productName, stockType) {
   return sender.sendText(from, `✅ Berhasil! Roti *${product.name}* sekarang statusnya: *${stockType.toUpperCase()}*.`);
 }
 
+async function cmdCancelCourier(from, orderNum) {
+  if (!orderNum) return sender.sendText(from, '⚠️ Format salah. Gunakan: */batal_kurir [nomor_pesanan]*\nContoh: /batal_kurir 5');
+
+  const order = await db.getOrderByNumber(orderNum);
+  if (!order) return sender.sendText(from, `❌ Pesanan #${orderNum} tidak ditemukan.`);
+  
+  if (order.order_status !== 'shipping') {
+    return sender.sendText(from, `⚠️ Pesanan #${orderNum} saat ini berstatus *${order.order_status}*, bukan sedang dikirim.`);
+  }
+
+  if (!order.lalamove_order_id) {
+    return sender.sendText(from, `⚠️ Pesanan #${orderNum} tidak memiliki ID Lalamove aktif.`);
+  }
+
+  await sender.sendText(from, `⏳ Membatalkan Lalamove untuk pesanan #${orderNum}...`);
+
+  const success = await lalamove.cancelOrder(order.lalamove_order_id);
+  if (!success) {
+    return sender.sendText(from, `❌ Gagal membatalkan pesanan di sistem Lalamove. Mungkin sudah dibatalkan atau kurir sudah jalan.`);
+  }
+
+  await db.updateOrder(order.id, {
+    lalamove_status: 'CANCELED',
+    lalamove_order_id: null,
+    order_status: 'confirmed'
+  });
+
+  await sender.sendText(from, `✅ Berhasil membatalkan pencarian Lalamove untuk pesanan #${orderNum}.\nStatus pesanan dikembalikan menjadi *Dikonfirmasi (confirmed)*.\nKakak bisa mengetik */kirim ${orderNum}* lagi nanti untuk memanggil kurir baru.`);
+}
+
 /**
  * /help - Show available commands
  */
@@ -435,6 +467,7 @@ async function cmdHelp(from) {
     `*/cek [no]* — Detail status\n` +
     `*/bayar [no]* — Konfirmasi pembayaran\n` +
     `*/kirim [no]* — Panggil kurir Lalamove\n` +
+    `*/batal_kurir [no]* — Batalkan panggil Lalamove\n` +
     `*/selesai [no]* — Tandai pesanan selesai\n` +
     `*/pause* — Matikan bot sementara\n` +
     `*/resume* — Hidupkan bot kembali\n` +
@@ -442,7 +475,7 @@ async function cmdHelp(from) {
     `*/ready [roti]* — Set status Ready Stock\n` +
     `*/habis [roti]* — Set stok habis\n` +
     `*/ada [roti]* — Set stok tersedia\n` +
-    `*/batal [no]* — Batalkan pesanan\n` +
+    `*/batal [no]* — Batalkan pesanan total\n` +
     `*/help* — Bantuan ini`;
 
   await sender.sendText(from, msg);
@@ -452,7 +485,7 @@ async function cmdHelp(from) {
  * Check if a message is an admin command
  */
 function isAdminCommand(text) {
-  return /^\/(status|export|struk|kirim|cek|bayar|batal|help|bantuan|po|ready|habis|ada|pause|resume|selesai)/i.test(text.trim());
+  return /^\/(status|export|struk|kirim|batal_kurir|cek|bayar|batal|help|bantuan|po|ready|habis|ada|pause|resume|selesai)/i.test(text.trim());
 }
 
 module.exports = { handleAdminCommand, isAdminCommand };

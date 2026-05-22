@@ -19,3 +19,12 @@ dist/
 
 # OS files
 Thumbs.db
+
+# Temporary & Scratch Files
+faqs.sql
+google_sheets_*.csv
+n8n_*.json
+n8n_*.md
+simulation-log.md
+traefik_ssl_troubleshooting.md
+seed_faqs.js

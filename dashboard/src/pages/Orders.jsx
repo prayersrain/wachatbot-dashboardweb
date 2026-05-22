@@ -60,6 +60,8 @@ export default function Orders() {
   const [dateFilter, setDateFilter] = useState('all');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [viewMode, setViewMode] = useState('orders'); // 'orders' or 'abandoned'
+  const [abandonedSessions, setAbandonedSessions] = useState([]);
 
   // Confirm dialog state
   const [confirmState, setConfirmState] = useState({ open: false, orderId: null, action: null, orderNumber: '' });
@@ -151,7 +153,33 @@ export default function Orders() {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [activeFilter, dateFilter, searchTerm]);
+  }, [activeFilter, dateFilter, searchTerm, viewMode]);
+
+  const fetchAbandoned = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('*')
+        .in('state', ['ORDER', 'LOCATION', 'PAYMENT', 'CONFIRM'])
+        .not('wa_number', 'like', 'system:%')
+        .order('updated_at', { ascending: false });
+      
+      if (error) throw error;
+      setAbandonedSessions(data || []);
+    } catch (err) {
+      console.error('Error fetching abandoned sessions:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'abandoned') {
+      fetchAbandoned();
+    } else {
+      fetchOrders();
+    }
+  }, [viewMode, fetchAbandoned, fetchOrders]);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -249,7 +277,25 @@ export default function Orders() {
         </div>
       </header>
 
-      {/* Filters & Search */}
+      {/* Tabs */}
+      <div className="flex gap-4 border-b border-stone-200">
+        <button 
+          onClick={() => setViewMode('orders')}
+          className={`pb-4 font-bold text-sm transition-colors border-b-2 ${viewMode === 'orders' ? 'border-primary text-primary' : 'border-transparent text-stone-400 hover:text-stone-600'}`}
+        >
+          Semua Pesanan
+        </button>
+        <button 
+          onClick={() => setViewMode('abandoned')}
+          className={`pb-4 font-bold text-sm transition-colors border-b-2 ${viewMode === 'abandoned' ? 'border-primary text-primary' : 'border-transparent text-stone-400 hover:text-stone-600'}`}
+        >
+          Keranjang Terbengkalai
+        </button>
+      </div>
+
+      {viewMode === 'orders' ? (
+        <>
+          {/* Filters & Search */}
       <div className="bg-white border border-stone-100 p-4 md:p-6 rounded-[32px] shadow-sm space-y-6">
         <div className="relative group">
           <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-primary transition-colors" />
@@ -394,6 +440,57 @@ export default function Orders() {
           >
             <ChevronRight size={18} />
           </button>
+        </div>
+      )}
+      </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {loading ? (
+            [...Array(3)].map((_, i) => <SkeletonCard key={i} />)
+          ) : abandonedSessions.length === 0 ? (
+            <div className="col-span-full py-20 bg-white border-2 border-dashed border-stone-100 rounded-[40px] text-center">
+              <ShoppingBag size={48} className="mx-auto text-stone-200 mb-4" />
+              <p className="text-stone-muted font-bold tracking-tight">Tidak ada keranjang terbengkalai.</p>
+            </div>
+          ) : (
+            abandonedSessions.map((session) => (
+              <div 
+                key={session.wa_number} 
+                className="bg-white border border-stone-100 rounded-[32px] p-6 shadow-sm hover:shadow-xl hover:border-stone-200 transition-all cursor-pointer"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-xl font-black text-secondary">{session.data?.customerName || session.wa_number.split('@')[0]}</h3>
+                    <p className="text-sm font-bold text-stone-text mt-0.5">{session.wa_number.split('@')[0]}</p>
+                    <p className="text-[10px] text-stone-muted font-black uppercase tracking-widest mt-1">
+                      Terakhir aktif: {new Date(session.updated_at).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-700">
+                    <Clock size={12} strokeWidth={3} />
+                    {session.state}
+                  </div>
+                </div>
+
+                {session.data?.items && session.data.items.length > 0 && (
+                  <div className="space-y-2 mb-6">
+                    {session.data.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-xs font-bold text-stone-text bg-stone-50 px-3 py-2 rounded-xl">
+                        <span>{item.qty}x {item.name}</span>
+                        <span className="text-stone-muted">Rp {item.price?.toLocaleString('id-ID')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-5 border-t border-stone-50 flex items-center justify-between">
+                  <a href="/inbox" className="w-full text-center px-4 py-3 bg-stone-100 text-stone-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-stone-200 transition-all">
+                    Follow Up via Inbox
+                  </a>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 

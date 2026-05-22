@@ -8,6 +8,7 @@ const lalamove = require('../lalamove/client');
 const path = require('path');
 const fs = require('fs');
 const { buildOrderSummary } = require('./orderParser');
+const { geocodeAddress } = require('../utils/geocoder');
 
 // Order States
 const ST = {
@@ -18,8 +19,25 @@ const ST = {
   ORDER: 'ORDER',                // Gabungan CATALOG dan pesanan
   LOCATION: 'LOCATION',
   CONFIRM: 'CONFIRM',
-  PAYMENT: 'PAYMENT'
+  PAYMENT: 'PAYMENT',
+  ADMIN_TAKEOVER: 'ADMIN_TAKEOVER' // Bot diam saat diambil alih manusia
 };
+
+function calculateDeliveryFee(q) {
+  const distKm = q.distance.value / 1000;
+  
+  let customFee = 8000;
+  if (distKm > 3) {
+    if (distKm <= 25) {
+      customFee += (distKm - 3) * 2000;
+    } else {
+      customFee += 22 * 2000; 
+      customFee += (distKm - 25) * 2400; 
+    }
+  }
+  customFee = Math.ceil(customFee / 1000) * 1000;
+  return Math.max(parseFloat(q.total), customFee);
+}
 
 // Menu images
 const MENU_PAGE1 = path.join(__dirname, '..', 'assets', 'menu-page1.jpg');
@@ -33,22 +51,59 @@ async function handleCustomerMessage(from, name, message) {
   const state = session ? session.state : ST.IDLE;
   const text = message.text?.body || '';
 
+  // Jika sedang diambil alih admin, bot bungkam (kecuali diketik batal/halo/mulai untuk reset atau timeout 1 jam)
+  if (state === ST.ADMIN_TAKEOVER) {
+    const t = text.toLowerCase().trim();
+    const lastUpdate = session.updated_at ? new Date(session.updated_at).getTime() : Date.now();
+    const isTimeout = (Date.now() - lastUpdate) > 60 * 60 * 1000; // 1 Jam
+
+    if (isTimeout || ['batal', 'halo', 'mulai', 'reset'].includes(t)) {
+      await deleteSession(from);
+      return sender.sendText(from, 'Halo Kak! Sesi obrolan sebelumnya sudah ditutup. Ada yang bisa kami bantu hari ini? 😊');
+    }
+    return; // Abaikan semua chat
+  }
+
+  // 1. UPDATE HISTORY
+  let data = session && session.data ? session.data : {};
+  let history = data.history || [];
+  if (text.trim()) {
+    history.push({ role: 'user', content: text.trim() });
+    if (history.length > 10) history = history.slice(-10);
+    data.history = history;
+    await upsertSession(from, state, data);
+    if (session) session.data = data;
+  }
+
   // 1. SMART PARSE
   let aiData = null;
   const t = text.toLowerCase().trim();
   
+  if (message.type === 'location' && state !== ST.LOCATION) {
+    // Estimasi ongkir tanpa mengubah state
+    return await estimateShipping(from, message, state);
+  }
+
   if (state === ST.REGION_SELECT && ['1', 'jakarta', '1. jakarta', 'dki jakarta', '2', 'luar jakarta', '2. luar jakarta', 'luar kota'].includes(t)) {
     // Bypass AI untuk input wilayah yang valid
     aiData = { intent: 'REGION_MATCH' };
   } else if (text.trim().length > 0) {
-    aiData = await aiParseOrder(text, state, session?.data?.ambiguousPending);
+    let activeOrderContext = '';
+    if (state === ST.IDLE) {
+      const activeOrders = await db.getActiveOrdersByPhone(from);
+      if (activeOrders && activeOrders.length > 0) {
+        activeOrderContext = `\n\nINFO PENTING UNTUK AI: Pelanggan ini sedang memiliki PESANAN AKTIF. Berikut detail pesanannya:\n`;
+        activeOrders.forEach(ord => {
+          activeOrderContext += `- Pesanan #${ord.order_number}: ${ord.order_status} (Pembayaran: ${ord.payment_status}).\n`;
+        });
+      }
+    }
+    aiData = await aiParseOrder(text, state, session?.data?.ambiguousPending, activeOrderContext, history);
   }
 
   // ═══ SMART INTERRUPT (state-independent) ═══
   // Jawab pertanyaan kapan saja tanpa merusak state saat ini
-  if (state === ST.ONBOARDING) {
-    // BLOKIR SEMUA SMART INTERRUPT DI ONBOARDING (Kaku)
-  } else if (aiData && ['FAQ', 'QUESTION', 'THANKS', 'SHOW_MENU', 'OTHER', 'GREETING', 'ACKNOWLEDGE', 'ADMIN'].includes(aiData.intent)) {
+  if (aiData && ['FAQ', 'QUESTION', 'THANKS', 'SHOW_MENU', 'OTHER', 'GREETING', 'ACKNOWLEDGE', 'ADMIN'].includes(aiData.intent)) {
     const isLidWaitingPhone = state === ST.CONFIRM && from.endsWith('@lid') && (!session?.data?.customerPhone || session.data.customerPhone === '');
     const hasPhoneNumber = /(\+?62|0)\d{8,13}/.test(text.replace(/[\s-]/g, ''));
 
@@ -61,20 +116,37 @@ async function handleCustomerMessage(from, name, message) {
       // Abaikan pesan basa-basi/terima kasih supaya bot tidak cerewet (chatterbot) setelah pesanan selesai
       return;
     } else if (aiData.intent === 'ADMIN') {
+      await upsertSession(from, ST.ADMIN_TAKEOVER, session?.data || {});
       return sender.sendText(from, "Mohon maaf atas ketidaknyamanannya Kak. 🙏 Pesan Kakak sudah kami teruskan ke tim Admin. Harap tunggu sebentar ya, admin manusia kami akan segera membalas chat ini.");
     } else {
       if (aiData.intent === 'SHOW_MENU') {
         await sendMenuImages(from, 'Silakan pilih menu favorit Kakak! 👇');
       } else if (aiData.answer) {
         let reminder = '';
-        if (state === ST.REGION_SELECT) reminder = '\n\n🌍 _Mohon pilih wilayah Kakak (1. Jakarta, 2. Luar Jakarta)._';
+
+        let data = session?.data || {};
+        if (aiData.customerPhone) {
+          data.customerPhone = aiData.customerPhone;
+          if (data.customerPhone.startsWith('0')) data.customerPhone = '62' + data.customerPhone.slice(1);
+          data.customerPhone = data.customerPhone.replace(/\D/g, '');
+        }
+        if (aiData.customerName) {
+          data.customerName = aiData.customerName;
+        }
+        if (state === ST.REGION_SELECT) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
         else if (state === ST.LOCATION) reminder = '\n\n📍 _Silakan kirim lokasi/shareloc pengiriman ya Kak._';
         else if (state === ST.ORDER && session?.data?.items?.length > 0) reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
         else if (state === ST.ORDER) reminder = '\n\n📝 _Silakan ketik pesanan atau perjelas nama kuenya._';
         else if (state === ST.CONFIRM) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._';
         else if (state === ST.PAYMENT) reminder = '\n\n⌛ _Menunggu kiriman foto bukti transfer Kakak._';
         
-        await sender.sendText(from, aiData.answer + reminder);
+        const fullAnswer = aiData.answer + reminder;
+        history.push({ role: 'bot', content: fullAnswer });
+        if (history.length > 10) history = history.slice(-10);
+        data.history = history;
+        await upsertSession(from, state, data);
+
+        await sender.sendText(from, fullAnswer);
       }
       return; // Selesai, jangan ubah state
     }
@@ -82,8 +154,24 @@ async function handleCustomerMessage(from, name, message) {
 
   // ═══ FLOW LOGIC (state-dependent) ═══
   if (aiData) {
+    // --- CANCEL ---
+    if (aiData.intent === 'CANCEL') {
+      await deleteSession(from);
+      let cancelMsg = aiData.answer || '❌ Pesanan telah dibatalkan. Jika Kakak berubah pikiran, cukup ketik *Halo* untuk memulai pesanan baru ya Kak. 😊';
+      return sender.sendText(from, cancelMsg);
+    }
+
     // --- REJECTED: Customer luar Jakarta ---
     if (state === ST.REJECTED) {
+      const t = text.toLowerCase().trim();
+      const jakartaKeywords = ['jakarta', 'dki jakarta', 'jakarta pusat', 'jakarta selatan', 'jakarta barat', 'jakarta timur', 'jakarta utara', 'jakpus', 'jaksel', 'jakbar', 'jaktim', 'jakut', 'cempaka putih', 'johar baru'];
+      const isJakartaCorrection = jakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'jakarta');
+
+      if (isJakartaCorrection) {
+        await upsertSession(from, ST.REGION_SELECT, session.data || {});
+        return await handleCustomerMessage(from, name, message);
+      }
+
       const shopeeUrl = config.shopeeUrl || 'https://shopee.co.id/yoyobakery';
       const rejectionMsg = `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan di Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih! 😊🍞`;
       
@@ -94,36 +182,94 @@ async function handleCustomerMessage(from, name, message) {
       return sender.sendText(from, `Ada yang bisa kami bantu lagi Kak? 😊\n\nUntuk pemesanan, silakan kunjungi Shopee kami ya:\n🛒 *${shopeeUrl}*`);
     }
 
-    // --- ONBOARDING HANYA BERLAKU JIKA ADA ONBOARD_START ---
-    if (state === ST.ONBOARDING && (aiData.intent === 'ONBOARD_START' || text.toLowerCase().trim() === 'mulai')) {
-      await upsertSession(from, ST.REGION_SELECT, session ? session.data : {});
-      return sender.sendText(from, '🌍 Boleh tau untuk pengiriman ke daerah mana Kak?\n\n1. Jakarta\n2. Luar Jakarta\n\n_Ketik angka 1 atau 2 ya Kak._');
-    }
-
     // --- REGION_SELECT: Pilihan Wilayah ---
     if (state === ST.REGION_SELECT) {
       const t = text.toLowerCase().trim();
-      if (['1', 'jakarta', '1. jakarta', 'dki jakarta'].includes(t)) {
-        await upsertSession(from, ST.ORDER, session.data);
-        return sendMenuImages(from, 'Siap Kak, pesanan area *Jakarta*! 🍞\n\nSilakan ketik nama kue & jumlahnya (Contoh: Nastar Classic 2, Bolen Coklat 1).');
-      } else if (['2', 'luar jakarta', '2. luar jakarta', 'luar kota'].includes(t)) {
+      const jakartaKeywords = ['jakarta', 'dki jakarta', 'jakarta pusat', 'jakarta selatan', 'jakarta barat', 'jakarta timur', 'jakarta utara', 'jakpus', 'jaksel', 'jakbar', 'jaktim', 'jakut'];
+      // Daftar kota/provinsi luar Jakarta (otomatis arahkan ke Shopee)
+      const luarJakartaKeywords = ['luar jakarta', 'luar kota',
+        'bandung', 'surabaya', 'semarang', 'yogyakarta', 'jogja', 'medan', 'makassar', 'palembang',
+        'malang', 'solo', 'tangerang', 'bekasi', 'depok', 'bogor', 'cirebon', 'serang', 'cilegon',
+        'denpasar', 'bali', 'balikpapan', 'samarinda', 'pontianak', 'banjarmasin', 'manado',
+        'padang', 'pekanbaru', 'lampung', 'bandar lampung', 'batam', 'jambi', 'bengkulu',
+        'aceh', 'banda aceh', 'mataram', 'lombok', 'kupang', 'ambon', 'jayapura', 'sorong',
+        'kendari', 'palu', 'gorontalo', 'ternate', 'mamuju', 'pangkal pinang', 'tanjung pinang',
+        'purwokerto', 'tegal', 'pekalongan', 'magelang', 'klaten', 'karawang', 'sukabumi',
+        'garut', 'tasikmalaya', 'ciamis', 'subang', 'indramayu', 'kuningan', 'majalengka',
+        'jawa barat', 'jawa tengah', 'jawa timur', 'banten', 'sumatera', 'kalimantan', 'sulawesi',
+        'papua', 'nusa tenggara', 'ntb', 'ntt', 'riau', 'sumbar', 'sumsel', 'sumut', 'sulteng',
+        'sulsel', 'sulut', 'sulbar', 'sultra', 'kalbar', 'kalsel', 'kalteng', 'kaltim', 'kaltara',
+        'jabar', 'jateng', 'jatim', 'diy'
+      ];
+      
+      const isJakarta = t === '1' || t === '1.' || jakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'jakarta');
+      const isLuarJakarta = t === '2' || t === '2.' || luarJakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'luar_jakarta');
+
+      if (isJakarta) {
+        const hasExistingItems = session?.data?.items && session.data.items.length > 0;
+        const hasAmbiguous = session?.data?.ambiguousPending && session.data.ambiguousPending.length > 0;
+
+        if (hasExistingItems || hasAmbiguous) {
+          if (hasAmbiguous) {
+            await upsertSession(from, ST.ORDER, session.data);
+            let msg = 'Siap Kak, pesanan area *Jakarta*! 🍞\n\n🤔 Tapi maaf Kak, ada pesanan yang perlu diperjelas:\n\n';
+            session.data.ambiguousPending.forEach(item => {
+              if (item.type === 'missing_qty') {
+                msg += `❓ *"${item.original}"* — Mau dipesan berapa banyak ya Kak?\n`;
+              } else if (item.matches && item.matches.length > 0) {
+                const qtyPrefix = item.qty ? `(${item.qty} pcs) ` : '';
+                msg += `❓ *${qtyPrefix}"${item.original}"* — Kakak maksudnya yang mana?\n`;
+                item.matches.forEach(m => msg += `   • ${m}\n`);
+              } else {
+                msg += `❓ *"${item.original}"* — Produk ini tidak ada di menu kami.\n`;
+              }
+              msg += '\n';
+            });
+            msg += 'Silakan balas rinciannya ya Kak. 🙏';
+            return sender.sendText(from, msg);
+          } else {
+            await upsertSession(from, ST.LOCATION, session.data);
+            const { text: summary } = buildOrderSummary(session.data.items, undefined, session.data.notes);
+            const msg = `Siap Kak, pesanan area *Jakarta*! 🍞\n\n` +
+              `✅ *Pesanan Kakak:*\n\n${summary}\n\n` +
+              `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
+            return sender.sendText(from, msg);
+          }
+        } else {
+          await upsertSession(from, ST.ORDER, session.data);
+          return sendMenuImages(from, 'Siap Kak, pesanan area *Jakarta*! 🍞\n\nSilakan ketik nama kue & jumlahnya (Contoh: Nastar Classic 2, Bolen Coklat 1).');
+        }
+      } else if (isLuarJakarta) {
         await upsertSession(from, ST.REJECTED, session.data);
         const shopeeUrl = config.shopeeUrl || 'https://shopee.co.id/yoyobakery';
-        return sender.sendText(from, `Maaf Kak, pemesanan via WhatsApp instan saat ini khusus untuk area *Jakarta* ya. 🙏\n\nUntuk luar kota, Kakak bisa pesan melalui Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih banyak! 😊🍞`);
+        const customRejectText = aiData?.answer || `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan melalui Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih banyak! 😊🍞`;
+        return sender.sendText(from, customRejectText);
       } else if (aiData.intent !== 'FAQ') {
-        // Jika bukan FAQ/nanya-nanya, tapi jawabannya nggak match angka 1/2
-        return sender.sendText(from, 'Mohon pilih wilayah Kakak dengan membalas *1* atau *2* ya. 🙏');
+        return sender.sendText(from, '🌍 Mohon ketik nama kota atau wilayah Kakak ya (contoh: Jakarta, Bandung, Surabaya).');
       }
     }
 
     // --- CONFIRM ---
-    if (aiData.intent === 'CONFIRM' && (state === ST.LOCATION || state === ST.CONFIRM || state === ST.PAYMENT)) {
+    if (aiData.intent === 'CONFIRM' && (state === ST.ORDER || state === ST.LOCATION || state === ST.CONFIRM || state === ST.PAYMENT)) {
+      if (state === ST.ORDER) {
+        if (session?.data?.items?.length > 0) {
+          const { text: summary } = buildOrderSummary(session.data.items, undefined, session.data.notes);
+          await upsertSession(from, ST.LOCATION, session.data);
+          return sender.sendText(from, `Sip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.`);
+        } else {
+          return sender.sendText(from, 'Keranjang Kakak masih kosong. Silakan ketik nama kue yang ingin dipesan ya Kak.');
+        }
+      }
       if (state === ST.LOCATION) return sender.sendLocationRequest(from, 'Sip Kak! Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.');
       
       const s = await getSession(from);
       if (s && s.data.totalPrice) {
         // Collect Name/Phone for LID users if missing
         if (from.endsWith('@lid') && (!s.data.customerPhone || s.data.customerPhone === '')) {
+          const hasPhone = /(\+?62|0)([\s-]*\d){8,14}/.test(text);
+          if (hasPhone || (text.length > 5 && !/^(konfirmasi|benar|betul|iya|ya|sip|oke|ok)$/i.test(text.trim()))) {
+            return await handleNamePhoneCollection(from, name, text, s.data);
+          }
           return sender.sendText(from, `Sebelum pesanan diproses, boleh minta:\n👤 *Nama* dan 📱 *Nomor HP/WA* penerima?\n\n_Contoh: Budi, 081234567890_`);
         }
         return await finalizeOrder(from, name, s.data);
@@ -131,12 +277,7 @@ async function handleCustomerMessage(from, name, message) {
         return sender.sendText(from, 'Mohon kirim *Lokasi/Shareloc* dulu ya Kak agar total bayarnya muncul.');
       }
     }
-    
-    // --- CANCEL ---
-    if (aiData.intent === 'CANCEL') {
-      await deleteSession(from);
-      return sender.sendText(from, '❌ Pesanan telah dibatalkan. Ketik *Halo* untuk mulai baru.');
-    }
+
 
     // --- BACK ---
     if (aiData.intent === 'BACK') {
@@ -155,33 +296,97 @@ async function handleCustomerMessage(from, name, message) {
     }
 
     // --- QUERY: Tanya status pesanan ---
+    // SKIP jika state CONFIRM dan user LID belum kasih nama/HP (biar fallback handleNamePhoneCollection jalan)
     if (aiData.intent === 'QUERY' && session?.data?.items) {
-      const { text: summary } = buildOrderSummary(session.data.items, session.data.deliveryFee, session.data.notes);
-      let queryMsg = `📋 *Status Pesanan Kakak:*\n\n${summary}\n\n`;
-      if (session.data.notes) {
-        queryMsg += `📝 *Catatan Khusus:* ${session.data.notes}\n\n`;
+      if (state === ST.CONFIRM && from.endsWith('@lid') && (!session.data.customerPhone || session.data.customerPhone === '')) {
+        // Jangan tangkap — biarkan jatuh ke fallback CONFIRM di bawah
+      } else {
+        const { text: summary } = buildOrderSummary(session.data.items, session.data.deliveryFee, session.data.notes);
+        let queryMsg = '';
+        if (aiData.answer) {
+          queryMsg += `${aiData.answer}\n\n`;
+        }
+        queryMsg += `📋 *Status Pesanan Kakak:*\n\n${summary}\n\n`;
+        
+        // Berikan panduan langkah selanjutnya yang jelas berdasarkan state
+        if (state === ST.LOCATION) {
+          queryMsg += `📍 *Langkah selanjutnya:* Kirim *Lokasi/Shareloc* alamat pengiriman ya Kak (klik 📎 → Lokasi).`;
+        } else if (state === ST.CONFIRM) {
+          queryMsg += `✅ *Langkah selanjutnya:* Balas *Konfirmasi* jika pesanan sudah benar, atau *Kembali* jika ingin mengubah.`;
+        } else if (state === ST.PAYMENT) {
+          queryMsg += `💳 *Langkah selanjutnya:* Kirim *foto bukti transfer* untuk menyelesaikan pesanan.`;
+        } else {
+          queryMsg += `🛒 Silakan lanjutkan pesanan Kakak ya.`;
+        }
+        
+        let curHistory = session?.data?.history || [];
+        curHistory.push({ role: 'bot', content: queryMsg });
+        if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+        await upsertSession(from, state, { ...session?.data, history: curHistory });
+
+        return sender.sendText(from, queryMsg);
       }
-      queryMsg += `*Silakan lanjut proses pemesanan sesuai petunjuk sebelumnya.*`;
-      return sender.sendText(from, queryMsg);
     }
 
     // --- ORDER: Proses pesanan ---
-    if (aiData.intent === 'ORDER' && state !== ST.IDLE && state !== ST.ONBOARDING) {
-      return await handleOrderInput(from, name, text, aiData.items, aiData.customerName, aiData.notes, aiData.answer);
+    if (aiData.intent === 'ORDER') {
+      if (state === ST.IDLE) {
+        const products = await db.getProducts();
+        const matchedItems = [];
+        const ambiguousItems = [];
+        
+        if (aiData.items && aiData.items.length > 0) {
+          aiData.items.forEach(newItem => {
+            let p = products.find(prod => prod.name.toLowerCase() === newItem.name.toLowerCase());
+            if (!p) {
+              const matches = products.filter(prod => prod.name.toLowerCase().includes(newItem.name.toLowerCase()));
+              if (matches.length === 1) {
+                p = matches[0];
+              } else if (matches.length > 1) {
+                ambiguousItems.push({ original: newItem.name, matches: matches.map(m => m.name), qty: newItem.qty });
+                return;
+              }
+            }
+            if (p) {
+              matchedItems.push({ name: p.name, qty: newItem.qty || 1, price: p.price });
+            } else {
+              ambiguousItems.push({ original: newItem.name, matches: [], qty: newItem.qty || 1 });
+            }
+          });
+        }
+        
+        await upsertSession(from, ST.REGION_SELECT, { 
+          customerName: aiData.customerName || name, 
+          chatMode: 'guided',
+          items: matchedItems,
+          ambiguousPending: ambiguousItems,
+          notes: aiData.notes || ''
+        });
+
+        let welcomeMsg = `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n`;
+        if (matchedItems.length > 0) {
+          welcomeMsg += `Pesanan Kakak sudah saya catat ya:\n`;
+          matchedItems.forEach((item, idx) => {
+            welcomeMsg += `${idx + 1}. *${item.name}* (${item.qty} box)\n`;
+          });
+          welcomeMsg += `\n`;
+        }
+        welcomeMsg += `🌍 Sebelum lanjut, boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊`;
+        return sender.sendText(from, welcomeMsg);
+      } else {
+        return await handleOrderInput(from, name, text, aiData.items, aiData.customerName, aiData.notes, aiData.answer, aiData.address);
+      }
     }
   }
 
   // 3. FALLBACK berdasarkan state
   switch (state) {
     case ST.IDLE:
-      // Di state IDLE, jika bukan intent FAQ/QUESTION dsb yang ditangkap Smart Interrupt,
-      // bot akan langsung nge-lempar instruksi awal.
-      await upsertSession(from, ST.ONBOARDING, { customerName: name, chatMode: 'guided' });
-      return sender.sendText(from, `Halo Kak! Selamat datang di Yoyo Bakery! 🍞\n\nCara pemesanan sangat mudah:\n1. Ketik nama kue dan jumlahnya (Contoh: Bolen Coklat Keju 1).\n2. Bot akan merekap pesanan Kakak.\n3. Kirim lokasi untuk hitung ongkir kurir.\n4. Selesaikan pembayaran transfer BCA.\n\n👉 Jika sudah paham, ketik *MULAI* untuk memesan.`);
-    case ST.ONBOARDING:
-      return; // Silent ignore jika pelanggan ngetik selain mulai
+      // Langsung ke pemilihan wilayah tanpa tutorial
+      await upsertSession(from, ST.REGION_SELECT, { customerName: name, chatMode: 'guided' });
+      return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
     case ST.REGION_SELECT:
-      return sender.sendText(from, '🌍 Boleh tau untuk pengiriman ke daerah mana Kak?\n\n1. Jakarta\n2. Luar Jakarta\n\n_Ketik angka 1 atau 2 ya Kak._');
+      return sender.sendText(from, '🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊');
     case ST.REJECTED:
       return sender.sendText(from, `Ada yang bisa kami bantu lagi Kak? 😊\n\nUntuk pemesanan, silakan kunjungi Shopee kami ya:\n🛒 *${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}*\n\nTerima kasih! 😊🍞`);
     case ST.ORDER: 
@@ -190,15 +395,37 @@ async function handleCustomerMessage(from, name, message) {
       if (message.type === 'location') {
          return await handleLocation(from, name, message);
       }
-      return sender.sendLocationRequest(from, '📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya (Klik 📎 → Lokasi).');
+      // Coba deteksi apakah text adalah sebuah alamat
+      if (text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim())) {
+         const geo = await geocodeAddress(text);
+         if (geo) {
+           const mockLocationMessage = {
+             type: 'location',
+             location: {
+               latitude: geo.lat,
+               longitude: geo.lng,
+               name: geo.formattedAddress
+             }
+           };
+           return await handleLocation(from, name, mockLocationMessage);
+         }
+      }
+      return sender.sendLocationRequest(from, '📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya (Klik 📎 → Lokasi). Atau ketik alamat lengkap pengiriman.');
     case ST.CONFIRM:
       if (text.length > 0) {
         const s = await getSession(from);
         if (from.endsWith('@lid') && (!s.data.customerPhone || s.data.customerPhone === '')) {
            return await handleNamePhoneCollection(from, name, text, s.data);
         }
+        // Tangkap kata "konfirmasi" langsung tanpa harus lewat AI
+        const tConfirm = text.toLowerCase().trim();
+        if (['konfirmasi', 'konfirm', 'confirm', 'ok', 'oke', 'iya', 'ya', 'sip', 'benar', 'betul', 'lanjut', 'gas', 'sudah benar'].some(k => tConfirm.includes(k))) {
+          if (s && s.data.totalPrice) {
+            return await finalizeOrder(from, name, s.data);
+          }
+        }
       }
-      return sender.sendText(from, 'Mohon balas dengan *Konfirmasi* untuk lanjut, atau *Kembali* untuk ubah data. 🙏');
+      return sender.sendText(from, '✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah. 🙏');
     case ST.PAYMENT:
       if (message.type === 'image') return await handlePaymentProof(from, message);
       return sender.sendText(from, '⌛ Menunggu foto bukti transfer Kakak. (Atau ketik *Kembali* jika ada yg salah)');
@@ -240,7 +467,7 @@ async function handleGreeting(from, name) {
 // ORDER HANDLING
 // ============================================================
 
-async function handleOrderInput(from, name, text, aiItems = null, aiName = null, aiNotes = null, aiAnswer = null) {
+async function handleOrderInput(from, name, text, aiItems = null, aiName = null, aiNotes = null, aiAnswer = null, aiAddress = null) {
   const session = await getSession(from);
   let existingItems = (session && session.data && session.data.items) ? session.data.items : [];
   let ambiguousPending = (session && session.data && session.data.ambiguousPending) ? session.data.ambiguousPending : [];
@@ -252,13 +479,24 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   if (!newItems || newItems.length === 0) {
     logger.info({ text }, '🧠 Mencoba parse ulang pesanan via AI...');
     const aiData = await aiParseOrder(text, ST.ORDER, ambiguousPending);
-    newItems = aiData?.items;
+    newItems = aiData?.items || [];
     if (aiData?.customerName) finalName = aiData.customerName;
     if (aiData?.notes) finalNotes = aiData.notes;
+    if (aiData?.address) aiAddress = aiData.address;
+    if (aiData?.answer) aiAnswer = aiData.answer;
+    
+    // Jika AI menangkap intent CONFIRM, langsung arahkan ke lokasi
+    if (aiData?.intent === 'CONFIRM') {
+      if (existingItems.length > 0) {
+        const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
+        await upsertSession(from, ST.LOCATION, session.data);
+        return sender.sendText(from, `Sip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.`);
+      }
+    }
   }
 
-  if (!newItems || newItems.length === 0) {
-    if (existingItems.length > 0) return sender.sendText(from, 'Maaf Kak, saya tidak paham tambahan pesanannya. Bisa diulang? (Contoh: "Tambah Nastar 1")');
+  if ((!newItems || newItems.length === 0) && !aiAddress) {
+    if (existingItems.length > 0) return sender.sendText(from, 'Maaf Kak, saya tidak paham tambahan pesanannya. Bisa diulang? (Contoh: "Tambah Nastar 1", atau ketik "Konfirmasi" untuk lanjut)');
     return sender.sendText(from, 'Maaf Kak, saya tidak menemukan nama roti dalam pesan Kakak. Bisa diulang? (Contoh: "Pesan Nastar 2")');
   }
 
@@ -277,6 +515,30 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
         newItem.qty = pendingQty;
       }
       ambiguousPending.splice(pendingIndex, 1);
+    }
+
+    const action = newItem.action || 'add';
+
+    // SMART UPDATE/REMOVE: Cek keranjang terlebih dahulu
+    if (action === 'update' || action === 'remove') {
+      const exactExisting = existingItems.find(e => e.name.toLowerCase() === newItem.name.toLowerCase());
+      const existingMatches = exactExisting ? [exactExisting] : existingItems.filter(e => e.name.toLowerCase().includes(newItem.name.toLowerCase()));
+      
+      if (existingMatches.length === 1) {
+        const existingIndex = existingItems.findIndex(e => e.name === existingMatches[0].name);
+        if (action === 'remove') {
+          existingItems.splice(existingIndex, 1);
+        } else {
+          if (newItem.qty !== null && newItem.qty !== undefined) {
+             existingItems[existingIndex].qty = newItem.qty;
+          }
+        }
+        return; // Selesai untuk item ini
+      } else if (existingMatches.length > 1) {
+        ambiguousItems.push({ original: newItem.name, matches: existingMatches.map(m => m.name), qty: newItem.qty });
+        return;
+      }
+      // Jika tidak ada di keranjang, biarkan lanjut ke pencarian produk di bawah
     }
 
     let p = products.find(prod => prod.name.toLowerCase() === newItem.name.toLowerCase());
@@ -318,7 +580,11 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   });
 
   if (ambiguousItems.length > 0) {
-    let msg = '🤔 Maaf Kak, ada yang perlu diperjelas:\n\n';
+    let msg = '';
+    if (aiAnswer && aiAnswer.trim() !== '') {
+      msg += `${aiAnswer}\n\n`;
+    }
+    msg += '🤔 Maaf Kak, ada yang perlu diperjelas:\n\n';
     ambiguousItems.forEach(item => {
       if (item.type === 'missing_qty') {
         msg += `❓ *"${item.original}"* — Mau dipesan berapa banyak ya Kak?\n`;
@@ -333,12 +599,17 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
     });
     msg += 'Silakan balas rinciannya ya Kak. 🙏';
 
+    let curHistory = session?.data?.history || [];
+    curHistory.push({ role: 'bot', content: msg });
+    if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+
     await upsertSession(from, ST.ORDER, { 
       ...session?.data, 
       items: existingItems, 
       ambiguousPending: [...ambiguousPending, ...ambiguousItems],
       customerName: finalName, 
-      notes: finalNotes 
+      notes: finalNotes,
+      history: curHistory
     });
     return sender.sendText(from, msg);
   }
@@ -350,37 +621,156 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   }
 
   const prevSession = await getSession(from);
-  await upsertSession(from, ST.LOCATION, { 
-    items: existingItems, 
-    customerName: finalName,
-    customerPhone: prevSession?.data?.customerPhone || null,
-    notes: finalNotes
-  });
 
-  const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
-  const locationMsg = `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
+  if (prevSession?.data?.customerLat && prevSession?.data?.customerLng) {
+    const fee = prevSession.data.deliveryFee || 0;
+    const { text: summary, itemsTotal } = buildOrderSummary(existingItems, fee, finalNotes);
+    const finalTotal = itemsTotal + fee;
 
-  let msg = ``;
-  if (aiAnswer && aiAnswer.trim() !== '') {
-    msg += `${aiAnswer}\n\n`;
+    let curHistory = prevSession.data.history || [];
+    let msg = ``;
+    if (aiAnswer && aiAnswer.trim() !== '') {
+      msg += `${aiAnswer}\n\n`;
+    }
+    msg += `✅ *Pesanan Kakak Diperbarui:*\n\n${summary}\n\n`;
+    msg += `📍 Ongkir tetap menggunakan lokasi sebelumnya.\n`;
+    msg += `💰 *TOTAL BARU: Rp ${finalTotal.toLocaleString('id-ID')}*\n\n`;
+    msg += `Apakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*.`;
+
+    curHistory.push({ role: 'bot', content: msg });
+    if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+
+    await upsertSession(from, ST.CONFIRM, { 
+      ...prevSession.data, 
+      items: existingItems, 
+      customerName: finalName,
+      notes: finalNotes,
+      totalPrice: finalTotal,
+      history: curHistory
+    });
+
+    return sender.sendText(from, msg);
+  } else {
+    let curHistory = prevSession?.data?.history || [];
+    const newSessionData = { 
+      ...prevSession?.data,
+      items: existingItems, 
+      customerName: finalName,
+      customerPhone: prevSession?.data?.customerPhone || null,
+      notes: finalNotes,
+      history: curHistory
+    };
+
+    if (aiAddress && aiAddress.trim() !== '') {
+      const geo = await geocodeAddress(aiAddress);
+      if (geo) {
+        const lat = geo.lat;
+        const lng = geo.lng;
+        const addr = geo.formattedAddress;
+        
+        const q = await lalamove.getQuotation(lat, lng);
+        if (q) {
+          const fee = calculateDeliveryFee(q);
+          
+          if (fee > 50000) {
+            await upsertSession(from, ST.REJECTED, newSessionData);
+            let rejectMsg = `⚠️ Maaf Kak, ongkir ke lokasi tersebut terlalu mahal (Rp ${fee.toLocaleString('id-ID')}). Sepertinya lokasi Kakak di luar jangkauan pengiriman kami.\n\nPemesanan via WA hanya untuk area *Jakarta* ya Kak. Untuk luar Jakarta, silakan pesan via Shopee:\n🛒 ${config.shopeeUrl || 'https://shopee.co.id/'}`;
+            curHistory.push({ role: 'bot', content: rejectMsg });
+            if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+            return sender.sendText(from, rejectMsg);
+          }
+
+          const { text: summary, itemsTotal } = buildOrderSummary(existingItems, fee, finalNotes);
+          const finalTotal = itemsTotal + fee;
+
+          let msg = ``;
+          if (aiAnswer && aiAnswer.trim() !== '') {
+            msg += `${aiAnswer}\n\n`;
+          }
+          msg += `✅ *Pesanan Kakak Diperbarui:*\n\n${summary}\n\n`;
+          msg += `📍 *Alamat Terdeteksi Otomatis:*\n_${addr}_\n\n`;
+          msg += `💰 *TOTAL: Rp ${finalTotal.toLocaleString('id-ID')}*\n\n`;
+          msg += `Apakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*.`;
+
+          curHistory.push({ role: 'bot', content: msg });
+          if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+
+          await upsertSession(from, ST.CONFIRM, { 
+            ...newSessionData, 
+            customerLat: lat, 
+            customerLng: lng, 
+            customerAddress: addr, 
+            deliveryFee: fee, 
+            totalPrice: finalTotal,
+            history: curHistory
+          });
+
+          return sender.sendText(from, msg);
+        }
+      }
+    }
+
+    const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
+    const locationMsg = `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
+
+    let msg = ``;
+    if (aiAnswer && aiAnswer.trim() !== '') {
+      msg += `${aiAnswer}\n\n`;
+    }
+    
+    if (aiAddress && aiAddress.trim() !== '') {
+      msg += `📍 *Alamat Kakak sudah kami catat:*\n_${aiAddress}_\n\n⚠️ Namun, sistem gagal menemukan titik koordinat pasti dari alamat tersebut.\nBoleh bantu kirimkan *Lokasi/Shareloc* WhatsApp Kakak?\n\n`;
+    }
+
+    msg += `✅ *Pesanan Kakak:*\n\n${summary}\n\n`;
+    
+    msg += `🚚 Ongkir dihitung setelah kirim lokasi\n` +
+      `📦 _Pesanan bersifat PO, dikirim *besok* setelah pembayaran dikonfirmasi._\n\n` +
+      `${locationMsg}\n\n` +
+      `*Ketik:* _Batal_ / _Tambah [Nama Kue]_.\n` +
+      `Mau *ubah jumlah*? Ketik: "Nastar jadi 3"`;
+
+    curHistory.push({ role: 'bot', content: msg });
+    if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+    newSessionData.history = curHistory;
+
+    await upsertSession(from, ST.LOCATION, newSessionData);
+    return sender.sendText(from, msg);
   }
-  msg += `✅ *Pesanan Kakak:*\n\n${summary}\n\n`;
-  if (finalNotes && finalNotes.trim() !== '') {
-    msg += `📝 *Catatan Khusus:* ${finalNotes}\n\n`;
-  }
-  
-  msg += `🚚 Ongkir dihitung setelah kirim lokasi\n` +
-    `📦 _Pesanan bersifat PO, dikirim *besok* setelah pembayaran dikonfirmasi._\n\n` +
-    `${locationMsg}\n\n` +
-    `*Ketik:* _Batal_ / _Tambah [Nama Kue]_.\n` +
-    `Mau *ubah jumlah*? Ketik: "Nastar jadi 3"`;
-
-  return sender.sendText(from, msg);
 }
 
 // ============================================================
 // LOCATION & CONFIRMATION
 // ============================================================
+
+async function estimateShipping(from, message, state) {
+  const lat = message.location.latitude;
+  const lng = message.location.longitude;
+  const addr = message.location.name || `${lat},${lng}`;
+
+  if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+    return sender.sendText(from, '⚠️ Lokasi yang dikirim tidak valid Kak.');
+  }
+
+  const q = await lalamove.getQuotation(lat, lng);
+  if (!q) return sender.sendText(from, '⚠️ Gagal menghitung ongkir. Coba kirim ulang lokasi ya Kak.');
+
+  const fee = calculateDeliveryFee(q);
+  
+  if (fee > 50000) {
+    return sender.sendText(from, `⚠️ Ongkir ke lokasi tersebut cukup mahal (Estimasi Rp ${fee.toLocaleString('id-ID')}).\nPemesanan instan via WA hanya untuk area Jakarta ya Kak. Untuk luar Jakarta, silakan pesan via Shopee:\n🛒 ${config.shopeeUrl || 'https://shopee.co.id/'}`);
+  }
+
+  let reply = `📍 *Estimasi Ongkir Lalamove*\nKe: ${addr}\nBiaya: *Rp ${fee.toLocaleString('id-ID')}*\n\n_(Ongkir ini sudah disesuaikan dengan tarif sore/peak hour Lalamove)_`;
+
+  if (state === ST.REGION_SELECT) {
+    reply += `\n\n🌍 _Silakan lanjutkan dengan mengetik angka wilayah Kakak (1. Jakarta / 2. Luar Jakarta)._`;
+  } else if (state === ST.ORDER) {
+    reply += `\n\n📝 _Silakan ketik nama kue & jumlahnya untuk melanjutkan pesanan._`;
+  }
+
+  return sender.sendText(from, reply);
+}
 
 async function handleLocation(from, name, message) {
   const session = await getSession(from);
@@ -397,8 +787,7 @@ async function handleLocation(from, name, message) {
   const q = await lalamove.getQuotation(lat, lng);
   if (!q) return sender.sendText(from, '⚠️ Gagal menghitung ongkir. Coba kirim ulang lokasi ya Kak.');
 
-  const dist = (q.distance.value / 1000).toFixed(1);
-  const fee = parseFloat(q.total); 
+  const fee = calculateDeliveryFee(q);
   
   // OUT OF BOUNDS LIMIT (Max Rp 50.000)
   if (fee > 50000) {
@@ -428,7 +817,7 @@ async function handleLocation(from, name, message) {
 
   const msg = `📋 *Ringkasan Pesanan:*\n\n` +
     `${summary}\n\n` +
-    `📏 Jarak: ${dist} km\n` +
+    `📏 Jarak: ${(q.distance.value / 1000).toFixed(1)} km\n` +
     `📍 Tujuan: ${addr}\n\n` +
     `━━━━━━━━━━━━━━━━━━━\n` +
     `💰 *TOTAL: Rp ${finalTotal.toLocaleString('id-ID')}*\n` +

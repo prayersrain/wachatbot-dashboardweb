@@ -10,6 +10,7 @@ import Orders from './pages/Orders';
 import Products from './pages/Products';
 import Customers from './pages/Customers';
 import Settings from './pages/Settings';
+import Inbox from './pages/Inbox';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -48,6 +49,7 @@ function App() {
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
+                    <Route path="/inbox" element={<Inbox />} />
                     <Route path="/orders" element={<Orders />} />
                     <Route path="/products" element={<Products />} />
                     <Route path="/customers" element={<Customers />} />

@@ -50,7 +50,18 @@ async function sendText(to, text) {
   }
   
   try {
-    // Simulasi mengetik dihapus agar respon instan
+    // Simulasi pengetikan (Typing animation)
+    await sock.sendPresenceUpdate('composing', jid);
+    
+    // Hitung durasi ngetik yang natural: 30ms per karakter, maksimal 3 detik, minimal 1 detik
+    let delayMs = text.length * 30;
+    if (delayMs > 3000) delayMs = 3000;
+    if (delayMs < 1000) delayMs = 1000;
+    
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    // Pause typing (opsional, tapi baik untuk mencegah typing menggantung)
+    await sock.sendPresenceUpdate('paused', jid);
 
     return await sock.sendMessage(jid, { 
       text: text,

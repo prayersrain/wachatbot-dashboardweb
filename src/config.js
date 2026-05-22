@@ -36,6 +36,9 @@ const config = {
 
   // AI
   geminiApiKey: process.env.GEMINI_API_KEY,
+  
+  // Geocoding
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
 
   // Payment
   payment: {

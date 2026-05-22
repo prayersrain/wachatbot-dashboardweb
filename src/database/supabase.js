@@ -10,9 +10,19 @@ let _productCache = null;
 let _productCacheTime = 0;
 const PRODUCT_CACHE_TTL = 5 * 60 * 1000; // 5 menit
 
+// FAQ Cache
+let _faqCache = null;
+let _faqCacheTime = 0;
+const FAQ_CACHE_TTL = 5 * 60 * 1000; // 5 menit
+
 function invalidateProductCache() {
   _productCache = null;
   _productCacheTime = 0;
+}
+
+function invalidateFaqCache() {
+  _faqCache = null;
+  _faqCacheTime = 0;
 }
 
 // ==================== CUSTOMERS ====================
@@ -201,7 +211,7 @@ async function getActiveOrdersByPhone(waNumber) {
     .from('orders')
     .select('*')
     .eq('wa_number', waNumber)
-    .in('order_status', ['new', 'confirmed', 'packing'])
+    .in('order_status', ['new', 'waiting_payment', 'confirmed', 'packing', 'shipping'])
     .order('created_at', { ascending: false });
 
   if (error) return [];
@@ -416,6 +426,28 @@ async function getExpiredUnpaidOrders(daysOld, retryCount = 0) {
     return [];
   }
 }
+// ==================== FAQS ====================
+
+async function getFaqs() {
+  if (_faqCache && Date.now() - _faqCacheTime < FAQ_CACHE_TTL) {
+    return _faqCache;
+  }
+
+  const { data, error } = await supabase
+    .from('faqs')
+    .select('question, answer')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    logger.error({ error: error.message }, '❌ getFaqs error');
+    return _faqCache || []; // Fallback to stale cache if available
+  }
+
+  _faqCache = data;
+  _faqCacheTime = Date.now();
+  return data;
+}
+
 // ==================== STORAGE ====================
 
 async function uploadPaymentProof(orderNumber, buffer, mimeType = 'image/jpeg') {
@@ -472,4 +504,6 @@ module.exports = {
   setGlobalSetting,
   hasPreviousOrders,
   uploadPaymentProof,
+  getFaqs,
+  invalidateFaqCache,
 };

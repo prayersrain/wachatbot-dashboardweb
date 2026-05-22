@@ -96,7 +96,7 @@ async function connectToWhatsApp(handler) {
   sock = makeWASocket({
     version,
     auth: state,
-    logger: logger.child({}, { level: 'warn' }),
+    logger: logger.child({}, { level: 'silent' }),
     browser: ['Mac OS', 'Chrome', '121.0.6167.85'],
   });
 

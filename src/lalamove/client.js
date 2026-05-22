@@ -156,5 +156,20 @@ async function getOrderDetails(orderId) {
     return null;
   }
 }
+/**
+ * Cancel Lalamove order
+ */
+async function cancelOrder(orderId) {
+  const path = `/v3/orders/${orderId}`;
+  const headers = getAuthHeaders('DELETE', path);
 
-module.exports = { getQuotation, createOrder, getOrderDetails };
+  try {
+    await axios.delete(`${BASE_URL}${path}`, { headers });
+    return true;
+  } catch (err) {
+    logger.error({ error: err.response?.data || err.message }, '❌ Lalamove cancelOrder error');
+    return false;
+  }
+}
+
+module.exports = { getQuotation, createOrder, getOrderDetails, cancelOrder };
