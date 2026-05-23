@@ -805,6 +805,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
             customerAddress: addr, 
             deliveryFee: fee, 
             totalPrice: finalTotal,
+            quotationId: q.quotationId,
             history: curHistory
           });
 
