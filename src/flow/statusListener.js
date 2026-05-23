@@ -10,6 +10,7 @@ const config = require('../config');
  */
 function startStatusListener() {
   logger.info('📡 Supabase Status Listener aktif...');
+  startPolling(); // Tambahkan mekanisme fallback
 
   db.supabase
     .channel('status_updates')
@@ -109,7 +110,9 @@ function startStatusListener() {
         }
       }
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      logger.info({ status, err }, '📡 Status Listener Subscribe Result');
+    });
 
   // Listener untuk Broadcast dari Vercel (Dashboard)
   db.supabase
@@ -141,3 +144,99 @@ function startStatusListener() {
 }
 
 module.exports = { startStatusListener };
+
+// ==========================================
+// POLLING FALLBACK (Mencegah Realtime Gagal)
+// ==========================================
+function startPolling() {
+  setInterval(async () => {
+    try {
+      // 1. Cek pesanan yang baru dikonfirmasi
+      const { data: confirmedOrders } = await db.supabase
+        .from('orders')
+        .select('*')
+        .eq('order_status', 'confirmed')
+        .eq('payment_status', 'reviewing');
+        
+      if (confirmedOrders && confirmedOrders.length > 0) {
+        for (const newOrder of confirmedOrders) {
+          logger.info(`✅ [POLLING] Menjalankan otomatisasi BAYAR untuk #${newOrder.order_number}`);
+          await db.updateOrder(newOrder.id, { payment_status: 'paid' });
+          await db.deleteSession(newOrder.wa_number);
+          await sender.sendText(newOrder.wa_number, `✅ *Pembayaran pesanan #${newOrder.order_number} telah dikonfirmasi!*\n\nPesanan Kakak sedang kami siapkan ya. Kami akan kirim notifikasi lagi saat kurir berangkat. 🙏`);
+          await sender.sendText(config.adminPhone, `📢 *INFO DASHBOARD*\n\nPesanan #${newOrder.order_number} telah dikonfirmasi pembayarannya via Website. ✅`);
+        }
+      }
+
+      // 2. Cek pesanan yang baru dikirim tapi belum ada Lalamove
+      const { data: shippingOrders } = await db.supabase
+        .from('orders')
+        .select('*')
+        .eq('order_status', 'shipping')
+        .is('lalamove_order_id', null);
+        
+      if (shippingOrders && shippingOrders.length > 0) {
+        for (const newOrder of shippingOrders) {
+          logger.info(`🚚 [POLLING] Menjalankan otomatisasi KIRIM (Lalamove) untuk #${newOrder.order_number}`);
+          
+          if (!newOrder.lalamove_quotation_id) {
+             await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove otomatis untuk #${newOrder.order_number} karena quotation Lalamove tidak ditemukan di database.`);
+             continue;
+          }
+          if (!newOrder.customer_lat || !newOrder.customer_lng) {
+            await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove untuk #${newOrder.order_number} karena koordinat lokasi customer kosong.`);
+            continue;
+          }
+
+          // Fetch detail pesanan Lalamove yang sudah ada di database atau buat baru?
+          // Karena quotation sudah ada, gunakan quotationId dari database:
+          const quotationId = newOrder.lalamove_quotation_id;
+          
+          // Note: Kita butuh 'stops' untuk Lalamove. Jika tidak disimpan di DB, kita harus fetch ulang quotation.
+          // Untuk amannya, fetch ulang quotation agar mendapat 'stops' valid:
+          const q = await lalamove.getQuotation(newOrder.customer_lat, newOrder.customer_lng, newOrder.customer_address);
+          if (!q) {
+             logger.error({ orderId: newOrder.id }, '❌ Gagal ambil quotation ulang saat polling Lalamove');
+             continue;
+          }
+
+          const result = await lalamove.createOrder(
+            q.quotationId, 
+            q.stops, 
+            newOrder.customer_name || 'Pelanggan', 
+            newOrder.wa_number, 
+            `Yoyo Bakery #${newOrder.order_number}`
+          );
+
+          if (result && result.orderId) {
+            await db.updateOrder(newOrder.id, {
+              lalamove_order_id: result.orderId,
+              lalamove_share_link: result.shareLink,
+              lalamove_status: result.status,
+            });
+            await sender.sendText(newOrder.wa_number, `🚚 *Pesanan #${newOrder.order_number} sedang dalam perjalanan!*\n\nLacak kurir Lalamove di sini:\n${result.shareLink}\n\nSilakan tunggu di lokasi ya Kak. Terima kasih! ❤️`);
+            await sender.sendText(config.adminPhone, `📢 *LALAMOVE BERHASIL*\n\nPesanan #${newOrder.order_number} telah diserahkan ke driver. Link tracking:\n${result.shareLink}`);
+          } else {
+            await sender.sendText(config.adminPhone, `❌ *LALAMOVE GAGAL*\n\nGagal memanggil driver untuk pesanan #${newOrder.order_number}. Silakan panggil manual di aplikasi Lalamove.`);
+          }
+        }
+      }
+      
+      // 3. Cek pesanan selesai
+      const { data: completedOrders } = await db.supabase
+        .from('orders')
+        .select('*')
+        .eq('order_status', 'completed')
+        .neq('payment_status', 'paid'); // Hack if not fully updated
+        
+      if (completedOrders && completedOrders.length > 0) {
+        for (const newOrder of completedOrders) {
+           await db.updateOrder(newOrder.id, { payment_status: 'paid' });
+        }
+      }
+
+    } catch (err) {
+      logger.error({ err: err.message }, '❌ Polling error');
+    }
+  }, 10000); // 10 detik
+}
