@@ -23,6 +23,35 @@ const ST = {
   ADMIN_TAKEOVER: 'ADMIN_TAKEOVER' // Bot diam saat diambil alih manusia
 };
 
+function fuzzyMatchProduct(inputName, products) {
+  let p = products.find(prod => prod.name.toLowerCase() === inputName.toLowerCase());
+  if (p) return { match: p, ambiguous: null };
+
+  let matches = products.filter(prod => prod.name.toLowerCase().includes(inputName.toLowerCase()));
+  if (matches.length === 1) return { match: matches[0], ambiguous: null };
+  if (matches.length > 1) return { match: null, ambiguous: matches.map(m => m.name) };
+
+  const inputWords = inputName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  if (inputWords.length > 0) {
+    matches = products.filter(prod => {
+      const prodName = prod.name.toLowerCase();
+      return inputWords.some(w => prodName.includes(w));
+    });
+    
+    if (matches.length === 1) return { match: matches[0], ambiguous: null };
+    if (matches.length > 1) {
+      matches.sort((a, b) => {
+        const aCount = inputWords.filter(w => a.name.toLowerCase().includes(w)).length;
+        const bCount = inputWords.filter(w => b.name.toLowerCase().includes(w)).length;
+        return bCount - aCount;
+      });
+      return { match: null, ambiguous: matches.slice(0, 4).map(m => m.name) };
+    }
+  }
+
+  return { match: null, ambiguous: null };
+}
+
 function calculateDeliveryFee(q) {
   const distKm = q.distance.value / 1000;
   
@@ -375,16 +404,12 @@ async function handleCustomerMessage(from, name, message) {
         
         if (aiData.items && aiData.items.length > 0) {
           aiData.items.forEach(newItem => {
-            let p = products.find(prod => prod.name.toLowerCase() === newItem.name.toLowerCase());
-            if (!p) {
-              const matches = products.filter(prod => prod.name.toLowerCase().includes(newItem.name.toLowerCase()));
-              if (matches.length === 1) {
-                p = matches[0];
-              } else if (matches.length > 1) {
-                ambiguousItems.push({ original: newItem.name, matches: matches.map(m => m.name), qty: newItem.qty });
-                return;
-              }
+            const result = fuzzyMatchProduct(newItem.name, products);
+            if (result.ambiguous) {
+              ambiguousItems.push({ original: newItem.name, matches: result.ambiguous, qty: newItem.qty });
+              return;
             }
+            let p = result.match;
             if (p) {
               matchedItems.push({ name: p.name, qty: newItem.qty || 1, price: p.price });
             } else {
@@ -611,18 +636,14 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
       // Jika tidak ada di keranjang, biarkan lanjut ke pencarian produk di bawah
     }
 
-    let p = products.find(prod => prod.name.toLowerCase() === newItem.name.toLowerCase());
-    
-    if (!p) {
-      if (action === 'remove') return; // Abaikan jika produk tidak ditemukan atau ambigu untuk dihapus
-      const matches = products.filter(prod => prod.name.toLowerCase().includes(newItem.name.toLowerCase()));
-      if (matches.length > 1) {
-        ambiguousItems.push({ original: newItem.name, matches: matches.map(m => m.name), qty: newItem.qty });
-        return;
-      } else if (matches.length === 1) {
-        p = matches[0];
-      }
+    if (action === 'remove') return;
+
+    const result = fuzzyMatchProduct(newItem.name, products);
+    if (result.ambiguous) {
+      ambiguousItems.push({ original: newItem.name, matches: result.ambiguous, qty: newItem.qty });
+      return;
     }
+    let p = result.match;
 
     if (p) {
       const action = newItem.action || 'add';
