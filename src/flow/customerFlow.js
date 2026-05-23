@@ -125,7 +125,7 @@ async function handleCustomerMessage(from, name, message) {
       // Abaikan pesan basa-basi/terima kasih supaya bot tidak cerewet (chatterbot) setelah pesanan selesai
       return;
     } else if (aiData.intent === 'ADMIN') {
-      await upsertSession(from, ST.ADMIN_TAKEOVER, session?.data || {});
+      await upsertSession(from, ST.ADMIN_TAKEOVER, data);
       return sender.sendText(from, "Mohon maaf atas ketidaknyamanannya Kak. 🙏 Pesan Kakak sudah kami teruskan ke tim Admin. Harap tunggu sebentar ya, admin manusia kami akan segera membalas chat ini.");
     } else {
       if (aiData.intent === 'SHOW_MENU') {
@@ -133,7 +133,6 @@ async function handleCustomerMessage(from, name, message) {
       } else if (aiData.answer) {
         let reminder = '';
 
-        let data = session?.data || {};
         if (aiData.customerPhone) {
           data.customerPhone = aiData.customerPhone;
           if (data.customerPhone.startsWith('0')) data.customerPhone = '62' + data.customerPhone.slice(1);
@@ -186,7 +185,7 @@ async function handleCustomerMessage(from, name, message) {
       const isJakartaCorrection = jakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'jakarta');
 
       if (isJakartaCorrection) {
-        await upsertSession(from, ST.REGION_SELECT, session.data || {});
+        await upsertSession(from, ST.REGION_SELECT, data);
         return await handleCustomerMessage(from, name, message);
       }
 
@@ -394,13 +393,12 @@ async function handleCustomerMessage(from, name, message) {
           });
         }
         
-        await upsertSession(from, ST.REGION_SELECT, { 
-          customerName: aiData.customerName || name, 
-          chatMode: 'guided',
-          items: matchedItems,
-          ambiguousPending: ambiguousItems,
-          notes: aiData.notes || ''
-        });
+        data.customerName = aiData.customerName || name;
+        data.chatMode = 'guided';
+        data.items = matchedItems;
+        data.ambiguousPending = ambiguousItems;
+        data.notes = aiData.notes || '';
+        await upsertSession(from, ST.REGION_SELECT, data);
 
         let welcomeMsg = `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n`;
         if (matchedItems.length > 0) {
@@ -424,10 +422,15 @@ async function handleCustomerMessage(from, name, message) {
       // Cek apakah pelanggan pernah pesan sebelumnya
       const lastOrder = await db.getLastOrder(from);
       if (lastOrder && lastOrder.customer_name) {
-        await upsertSession(from, ST.REGION_SELECT, { customerName: lastOrder.customer_name, customerPhone: lastOrder.customer_phone, chatMode: 'guided' });
+        data.customerName = lastOrder.customer_name;
+        data.customerPhone = lastOrder.customer_phone;
+        data.chatMode = 'guided';
+        await upsertSession(from, ST.REGION_SELECT, data);
         return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
       } else {
-        await upsertSession(from, ST.REGION_SELECT, { customerName: name, chatMode: 'guided' });
+        data.customerName = name;
+        data.chatMode = 'guided';
+        await upsertSession(from, ST.REGION_SELECT, data);
         return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
       }
     case ST.REGION_SELECT:
