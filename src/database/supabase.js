@@ -1,9 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 const config = require('../config');
 const logger = require('../utils/logger');
 
-// Initialize Supabase client
-const supabase = createClient(config.supabase.url, config.supabase.anonKey);
+// Initialize Supabase client dengan dukungan WebSocket untuk Node.js (VPS)
+const supabase = createClient(config.supabase.url, config.supabase.anonKey, {
+  auth: { persistSession: false },
+  global: { WebSocket }
+});
 
 // Product Cache (hemat query DB)
 let _productCache = null;
