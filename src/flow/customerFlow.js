@@ -150,6 +150,8 @@ async function handleCustomerMessage(from, name, message) {
       // Biarkan lanjut ke FLOW LOGIC di bawah
     } else if (isLidWaitingPhone && hasPhoneNumber) {
       // Pengecualian 2: Jika user LID sedang ditanya nomor HP, biarkan lolos ke fallback bawah
+    } else if (state === ST.LOCATION && text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim())) {
+      // Pengecualian 3: Jika user mengirimkan teks panjang saat ditanya lokasi, biarkan lolos ke fallback bawah
     } else if (aiData.intent === 'ACKNOWLEDGE' || (state === ST.IDLE && ['OTHER', 'THANKS'].includes(aiData.intent))) {
       // Abaikan pesan basa-basi/terima kasih supaya bot tidak cerewet (chatterbot) setelah pesanan selesai
       return;
@@ -327,7 +329,16 @@ async function handleCustomerMessage(from, name, message) {
           return sender.sendText(from, 'Keranjang Kakak masih kosong. Silakan ketik nama kue yang ingin dipesan ya Kak.');
         }
       }
-      if (state === ST.LOCATION) return sender.sendLocationRequest(from, 'Sip Kak! Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.');
+      if (state === ST.LOCATION) {
+        if (text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim())) {
+           const geo = await geocodeAddress(text);
+           if (geo) {
+             const mockLocationMessage = { type: 'location', location: { latitude: geo.lat, longitude: geo.lng, name: geo.formattedAddress } };
+             return await handleLocation(from, name, mockLocationMessage);
+           }
+        }
+        return sender.sendLocationRequest(from, 'Sip Kak! Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.');
+      }
       
       const s = await getSession(from);
       if (s && s.data.totalPrice) {
