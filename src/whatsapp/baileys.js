@@ -98,7 +98,23 @@ async function connectToWhatsApp(handler) {
     auth: state,
     logger: logger.child({}, { level: 'silent' }),
     browser: ['Mac OS', 'Chrome', '121.0.6167.85'],
+    printQRInTerminal: !process.env.BOT_PHONE_NUMBER // Jangan print QR bawaan baileys jika pakai nomor
   });
+
+  if (!sock.authState.creds.registered && process.env.BOT_PHONE_NUMBER) {
+    setTimeout(async () => {
+      try {
+        const phoneNumber = process.env.BOT_PHONE_NUMBER.replace(/[^0-9]/g, '');
+        const code = await sock.requestPairingCode(phoneNumber);
+        logger.info(`\n==============================================`);
+        logger.info(`🔑 KODE PAIRING WHATSAPP ANDA: ${code}`);
+        logger.info(`==============================================\n`);
+        logger.info('Silakan minta tim operasional memasukkan kode di atas ke aplikasi WA mereka (Pilih "Tautkan dengan Nomor Telepon" di menu Perangkat Taut).');
+      } catch (err) {
+        logger.error({ err: err.message }, '❌ Gagal meminta pairing code');
+      }
+    }, 3000);
+  }
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -109,7 +125,7 @@ async function connectToWhatsApp(handler) {
 
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
-    if (qr) {
+    if (qr && !process.env.BOT_PHONE_NUMBER) {
       logger.info('📷 Silakan scan QR Code:');
       qrcode.generate(qr, { small: true });
     }
