@@ -802,6 +802,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
       }
     }
 
+    const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
     const locationMsg = `📍 Silakan ketik *alamat lengkap pengiriman* Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir.`;
 
     let msg = ``;
