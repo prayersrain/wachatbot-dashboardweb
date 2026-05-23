@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
-import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X, AlertCircle } from 'lucide-react';
 
 // Defined OUTSIDE the component to avoid re-creation on every render
 const SectionCard = ({ icon: Icon, title, children }) => (
@@ -32,9 +32,34 @@ export default function Settings() {
   const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
   const [showAddFaq, setShowAddFaq] = useState(false);
 
+  const [bolenSoldOut, setBolenSoldOut] = useState(false);
+
   useEffect(() => {
     fetchFaqs();
+    fetchGlobalSettings();
   }, []);
+
+  const fetchGlobalSettings = async () => {
+    try {
+      const { data, error } = await supabase.from('global_settings').select('*').eq('key', 'bolen_sold_out_today').single();
+      if (data) {
+        setBolenSoldOut(data.value === 'true');
+      }
+    } catch (err) {
+      // It's okay if not exists yet
+    }
+  };
+
+  const toggleBolenSoldOut = async () => {
+    const newVal = !bolenSoldOut;
+    setBolenSoldOut(newVal);
+    try {
+      await supabase.from('global_settings').upsert({ key: 'bolen_sold_out_today', value: String(newVal) }, { onConflict: 'key' });
+      toast.success(newVal ? 'Bolen Instan diset HABIS hari ini' : 'Bolen Instan diset TERSEDIA hari ini');
+    } catch (err) {
+      toast.error('Gagal update status Bolen');
+    }
+  };
 
   const fetchFaqs = async () => {
     try {
@@ -154,6 +179,24 @@ export default function Settings() {
             className={`w-14 h-8 rounded-full transition-all duration-300 relative ${soundEnabled ? 'bg-primary' : 'bg-stone-200'}`}
           >
             <div className={`w-6 h-6 bg-white rounded-full shadow absolute top-1 transition-all duration-300 ${soundEnabled ? 'left-7' : 'left-1'}`} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl p-4 mt-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bolenSoldOut ? 'bg-rose-100' : 'bg-emerald-100'}`}>
+              <AlertCircle size={20} className={bolenSoldOut ? 'text-rose-600' : 'text-emerald-600'} />
+            </div>
+            <div>
+              <p className="font-bold text-secondary text-sm">Bolen Instan Habis Hari Ini</p>
+              <p className="text-xs text-stone-muted">Jika aktif, Bot AI akan memberitahu pelanggan bahwa pesanan bolen dikirim BESOK.</p>
+            </div>
+          </div>
+          <button
+            onClick={toggleBolenSoldOut}
+            className={`w-14 h-8 rounded-full transition-all duration-300 relative ${bolenSoldOut ? 'bg-rose-500' : 'bg-stone-200'}`}
+          >
+            <div className={`w-6 h-6 bg-white rounded-full shadow absolute top-1 transition-all duration-300 ${bolenSoldOut ? 'left-7' : 'left-1'}`} />
           </button>
         </div>
       </SectionCard>

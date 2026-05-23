@@ -108,6 +108,34 @@ function startStatusListener() {
       }
     )
     .subscribe();
+
+  // Listener untuk Broadcast dari Vercel (Dashboard)
+  db.supabase
+    .channel('whatsapp_bot')
+    .on('broadcast', { event: 'send_message' }, async (payload) => {
+      try {
+        const { wa_number, message } = payload.payload;
+        if (!wa_number || !message) return;
+        
+        logger.info(`💬 Mengirim pesan via Dashboard ke ${wa_number}`);
+        await sender.sendText(wa_number, message);
+
+        // Update history di database agar sinkron
+        const session = await db.getSession(wa_number);
+        if (session) {
+          let curHistory = session.data?.history || [];
+          curHistory.push({ role: 'bot', content: message });
+          if (curHistory.length > 100) curHistory = curHistory.slice(-100);
+          await db.upsertSession(wa_number, session.state, { 
+            ...session.data, 
+            history: curHistory 
+          });
+        }
+      } catch (err) {
+        logger.error({ err: err.message }, '❌ Gagal mengirim pesan dari Dashboard');
+      }
+    })
+    .subscribe();
 }
 
 module.exports = { startStatusListener };

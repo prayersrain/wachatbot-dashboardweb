@@ -366,10 +366,10 @@ export default function Orders() {
                 className="bg-white border border-stone-100 rounded-[32px] p-6 shadow-sm hover:shadow-xl hover:border-stone-200 transition-all cursor-pointer group"
                 onClick={() => setSelectedOrder(order)}
               >
-                <div className="flex justify-between items-start mb-6">
-                  <div>
+                <div className="flex justify-between items-start gap-4 mb-6">
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-xl font-black text-secondary group-hover:text-primary transition-colors">#{order.order_number}</h3>
-                    <p className="text-sm font-bold text-stone-text mt-0.5">{order.customer_name}</p>
+                    <p className="text-sm font-bold text-stone-text mt-0.5 truncate" title={order.customer_name}>{order.customer_name}</p>
                     <p className="text-[10px] text-stone-muted font-black uppercase tracking-widest mt-1">
                       {new Date(order.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </p>

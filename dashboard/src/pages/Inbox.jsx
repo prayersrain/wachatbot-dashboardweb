@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { MessageCircle, Send, User, Clock, AlertCircle, CheckCircle2, PlayCircle } from 'lucide-react';
+import { MessageCircle, Send, User, Clock, AlertCircle, CheckCircle2, PlayCircle, ChevronLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -10,6 +10,7 @@ export default function Inbox() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [filterState, setFilterState] = useState('ALL');
   const chatEndRef = useRef(null);
 
   const fetchSessions = async () => {
@@ -25,10 +26,13 @@ export default function Inbox() {
       setLoading(false);
       
       // Update selected session if it exists
-      if (selectedSession) {
-        const updated = data?.find(s => s.wa_number === selectedSession.wa_number);
-        if (updated) setSelectedSession(updated);
-      }
+      setSelectedSession(prev => {
+        if (prev) {
+          const updated = data?.find(s => s.wa_number === prev.wa_number);
+          if (updated) return updated;
+        }
+        return prev;
+      });
     } catch (err) {
       console.error('Error fetching sessions:', err);
       setLoading(false);
@@ -51,7 +55,7 @@ export default function Inbox() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedSession?.wa_number]); // added dependency so closure sees selectedSession
+  }, []); // removed dependency to prevent re-subscribing and dropping events
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -85,16 +89,17 @@ export default function Inbox() {
 
     setSending(true);
     try {
-      const res = await fetch('http://localhost:3000/api/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Mengirim pesan via Supabase Broadcast ke laptop yang menjalankan bot
+      const channel = supabase.channel('whatsapp_bot');
+      await channel.send({
+        type: 'broadcast',
+        event: 'send_message',
+        payload: {
           wa_number: selectedSession.wa_number,
           message: message.trim()
-        })
+        }
       });
       
-      if (!res.ok) throw new Error('Failed to send message');
       setMessage('');
       // Optimistic update
       const newHistory = [...(selectedSession.data?.history || []), { role: 'bot', content: message.trim() }];
@@ -126,7 +131,7 @@ export default function Inbox() {
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6 pb-6">
       {/* Sidebar: Session List */}
-      <div className="w-1/3 bg-white border border-stone-100 rounded-[32px] shadow-sm flex flex-col overflow-hidden">
+      <div className={`w-full md:w-1/3 bg-white border border-stone-100 rounded-[32px] shadow-sm flex-col overflow-hidden ${selectedSession ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-stone-100">
           <h2 className="text-xl font-black text-secondary tracking-tight flex items-center gap-2">
             <MessageCircle size={24} className="text-primary" />
@@ -135,9 +140,20 @@ export default function Inbox() {
           <p className="text-xs font-bold text-stone-muted uppercase tracking-widest mt-2">
             {sessions.length} Percakapan Aktif
           </p>
+          <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide">
+            {['ALL', 'IDLE', 'ORDER', 'LOCATION', 'CONFIRM', 'PAYMENT', 'ADMIN_TAKEOVER'].map(f => (
+              <button 
+                key={f}
+                onClick={() => setFilterState(f)}
+                className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-colors ${filterState === f ? 'bg-primary text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}`}
+              >
+                {f === 'ADMIN_TAKEOVER' ? 'TAKEOVER' : f}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {sessions.map(s => (
+          {sessions.filter(s => filterState === 'ALL' || s.state === filterState).map(s => (
             <div 
               key={s.wa_number}
               onClick={() => setSelectedSession(s)}
@@ -147,7 +163,7 @@ export default function Inbox() {
                 <p className="font-bold text-sm text-secondary truncate">
                   {s.data?.customerName || s.wa_number.split('@')[0]}
                 </p>
-                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${getStateColor(s.state)}`}>
+                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ml-2 ${getStateColor(s.state)}`}>
                   {s.state}
                 </span>
               </div>
@@ -161,17 +177,25 @@ export default function Inbox() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 bg-white border border-stone-100 rounded-[32px] shadow-sm flex flex-col overflow-hidden">
+      <div className={`flex-1 bg-white border border-stone-100 rounded-[32px] shadow-sm flex-col overflow-hidden ${selectedSession ? 'flex' : 'hidden md:flex'}`}>
         {selectedSession ? (
           <>
             <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-              <div>
-                <h3 className="font-black text-lg text-secondary">
-                  {selectedSession.data?.customerName || selectedSession.wa_number.split('@')[0]}
-                </h3>
-                <p className="text-xs font-bold text-stone-muted uppercase tracking-widest">
-                  {selectedSession.wa_number.split('@')[0]}
-                </p>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setSelectedSession(null)} 
+                  className="md:hidden p-2 -ml-2 rounded-xl text-stone-400 hover:text-stone-600 hover:bg-stone-200/50 transition-colors"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <div>
+                  <h3 className="font-black text-lg text-secondary">
+                    {selectedSession.data?.customerName || selectedSession.wa_number.split('@')[0]}
+                  </h3>
+                  <p className="text-xs font-bold text-stone-muted uppercase tracking-widest">
+                    {selectedSession.wa_number.split('@')[0]}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 {selectedSession.state !== 'ADMIN_TAKEOVER' ? (

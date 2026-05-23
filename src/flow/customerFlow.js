@@ -51,7 +51,26 @@ async function handleCustomerMessage(from, name, message) {
   const state = session ? session.state : ST.IDLE;
   const text = message.text?.body || '';
 
-  // Jika sedang diambil alih admin, bot bungkam (kecuali diketik batal/halo/mulai untuk reset atau timeout 1 jam)
+  // 1. UPDATE HISTORY (Selalu catat pesan pengguna apapun state-nya)
+  let data = session && session.data ? session.data : {};
+  let history = data.history || [];
+  
+  let contentToLog = text.trim();
+  if (message.type === 'image' || message.message?.imageMessage) {
+    contentToLog = text.trim() ? `[Mengirim Gambar] ${text.trim()}` : '[Mengirim Gambar]';
+  } else if (message.type === 'location') {
+    contentToLog = '[Mengirim Lokasi/Shareloc]';
+  }
+
+  if (contentToLog) {
+    history.push({ role: 'user', content: contentToLog });
+    if (history.length > 100) history = history.slice(-100);
+    data.history = history;
+    await upsertSession(from, state, data);
+    if (session) session.data = data;
+  }
+
+  // Jika sedang diambil alih admin, bot bungkam (kecuali diketik batal/halo/mulai untuk reset atau timeout 1 Jam)
   if (state === ST.ADMIN_TAKEOVER) {
     const t = text.toLowerCase().trim();
     const lastUpdate = session.updated_at ? new Date(session.updated_at).getTime() : Date.now();
@@ -64,18 +83,7 @@ async function handleCustomerMessage(from, name, message) {
     return; // Abaikan semua chat
   }
 
-  // 1. UPDATE HISTORY
-  let data = session && session.data ? session.data : {};
-  let history = data.history || [];
-  if (text.trim()) {
-    history.push({ role: 'user', content: text.trim() });
-    if (history.length > 10) history = history.slice(-10);
-    data.history = history;
-    await upsertSession(from, state, data);
-    if (session) session.data = data;
-  }
-
-  // 1. SMART PARSE
+  // 2. SMART PARSE
   let aiData = null;
   const t = text.toLowerCase().trim();
   
@@ -98,7 +106,8 @@ async function handleCustomerMessage(from, name, message) {
         });
       }
     }
-    aiData = await aiParseOrder(text, state, session?.data?.ambiguousPending, activeOrderContext, history);
+    const aiHistory = history.slice(-10);
+    aiData = await aiParseOrder(text, state, session?.data?.ambiguousPending, activeOrderContext, aiHistory);
   }
 
   // ═══ SMART INTERRUPT (state-independent) ═══
@@ -133,16 +142,25 @@ async function handleCustomerMessage(from, name, message) {
         if (aiData.customerName) {
           data.customerName = aiData.customerName;
         }
-        if (state === ST.REGION_SELECT) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
-        else if (state === ST.LOCATION) reminder = '\n\n📍 _Silakan kirim lokasi/shareloc pengiriman ya Kak._';
+        const tLower = text ? text.toLowerCase() : '';
+        const isPickup = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => tLower.includes(k) || (aiData.answer && aiData.answer.toLowerCase().includes(k)));
+        
+        if (state === ST.REGION_SELECT && !isPickup) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
+        else if (state === ST.LOCATION && !isPickup) reminder = '\n\n📍 _Silakan ketik alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir._';
         else if (state === ST.ORDER && session?.data?.items?.length > 0) reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
         else if (state === ST.ORDER) reminder = '\n\n📝 _Silakan ketik pesanan atau perjelas nama kuenya._';
         else if (state === ST.CONFIRM) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._';
         else if (state === ST.PAYMENT) reminder = '\n\n⌛ _Menunggu kiriman foto bukti transfer Kakak._';
+
+        // Cegah reminder cerewet jika hanya basa-basi atau info tambahan (kecuali pelanggan tanya FAQ murni)
+        if (['OTHER', 'THANKS', 'ACKNOWLEDGE', 'GREETING'].includes(aiData.intent)) {
+          reminder = '';
+        }
+
         
         const fullAnswer = aiData.answer + reminder;
         history.push({ role: 'bot', content: fullAnswer });
-        if (history.length > 10) history = history.slice(-10);
+        if (history.length > 100) history = history.slice(-100);
         data.history = history;
         await upsertSession(from, state, data);
 
@@ -204,13 +222,14 @@ async function handleCustomerMessage(from, name, message) {
       
       const isJakarta = t === '1' || t === '1.' || jakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'jakarta');
       const isLuarJakarta = t === '2' || t === '2.' || luarJakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.intent === 'REGION_MATCH' && aiData.region === 'luar_jakarta');
+      const isPickup = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => t.includes(k) || (aiData.answer && aiData.answer.toLowerCase().includes(k)));
 
-      if (isJakarta) {
+      if (isJakarta || isPickup) {
         const hasExistingItems = session?.data?.items && session.data.items.length > 0;
         const hasAmbiguous = session?.data?.ambiguousPending && session.data.ambiguousPending.length > 0;
 
         if (hasExistingItems || hasAmbiguous) {
-          if (hasAmbiguous) {
+          if (hasAmbiguous && !isPickup) {
             await upsertSession(from, ST.ORDER, session.data);
             let msg = 'Siap Kak, pesanan area *Jakarta*! 🍞\n\n🤔 Tapi maaf Kak, ada pesanan yang perlu diperjelas:\n\n';
             session.data.ambiguousPending.forEach(item => {
@@ -228,18 +247,38 @@ async function handleCustomerMessage(from, name, message) {
             msg += 'Silakan balas rinciannya ya Kak. 🙏';
             return sender.sendText(from, msg);
           } else {
-            await upsertSession(from, ST.LOCATION, session.data);
-            const { text: summary } = buildOrderSummary(session.data.items, undefined, session.data.notes);
-            const msg = `Siap Kak, pesanan area *Jakarta*! 🍞\n\n` +
-              `✅ *Pesanan Kakak:*\n\n${summary}\n\n` +
-              `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
-            return sender.sendText(from, msg);
+            if (isPickup) {
+               session.data.deliveryFee = 0;
+               session.data.isPickup = true;
+               session.data.notes = session.data.notes ? session.data.notes + ' (Pickup)' : '(Pickup)';
+               await upsertSession(from, ST.CONFIRM, session.data);
+               const { text: summary } = buildOrderSummary(session.data.items, 0, session.data.notes);
+               return sender.sendText(from, `Siap Kak! Untuk pesanan ambil sendiri (pickup) sudah saya catat.\n\n✅ *Pesanan Kakak:*\n\n${summary}\n\nKetik *Konfirmasi* jika sudah benar ya Kak!`);
+            } else {
+               await upsertSession(from, ST.LOCATION, session.data);
+               const { text: summary } = buildOrderSummary(session.data.items, undefined, session.data.notes);
+               const msg = `Siap Kak, pesanan area *Jakarta*! 🍞\n\n` +
+                 `✅ *Pesanan Kakak:*\n\n${summary}\n\n` +
+                 `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
+               return sender.sendText(from, msg);
+            }
           }
         } else {
+          if (isPickup) session.data.isPickup = true;
           await upsertSession(from, ST.ORDER, session.data);
-          return sendMenuImages(from, 'Siap Kak, pesanan area *Jakarta*! 🍞\n\nSilakan ketik nama kue & jumlahnya (Contoh: Nastar Classic 2, Bolen Coklat 1).');
+          return sendMenuImages(from, isPickup 
+             ? 'Boleh sekali Kak! Untuk pengambilan mandiri (pickup), silakan ketik nama kue & jumlahnya ya (Contoh: Nastar Classic 2, Bolen Coklat 1).'
+             : 'Siap Kak, pesanan area *Jakarta*! 🍞\n\nSilakan ketik nama kue & jumlahnya (Contoh: Nastar Classic 2, Bolen Coklat 1).');
         }
       } else if (isLuarJakarta) {
+        // Pengecualian: Jika pelanggan terang-terangan minta ambil sendiri / pickup, jangan blokir
+        const isPickup = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => t.includes(k) || (aiData.answer && aiData.answer.toLowerCase().includes(k)));
+        if (isPickup) {
+           session.data.isPickup = true;
+           await upsertSession(from, ST.ORDER, session.data);
+           return sender.sendText(from, (aiData.answer || 'Boleh sekali Kak! Untuk pengambilan mandiri (pickup), silakan informasikan terlebih dahulu produk apa saja yang ingin dipesan agar kami siapkan.') + '\n\n📝 _Silakan ketik nama kue & jumlahnya._');
+        }
+
         await upsertSession(from, ST.REJECTED, session.data);
         const shopeeUrl = config.shopeeUrl || 'https://shopee.co.id/yoyobakery';
         const customRejectText = aiData?.answer || `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan melalui Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih banyak! 😊🍞`;
@@ -382,9 +421,15 @@ async function handleCustomerMessage(from, name, message) {
   // 3. FALLBACK berdasarkan state
   switch (state) {
     case ST.IDLE:
-      // Langsung ke pemilihan wilayah tanpa tutorial
-      await upsertSession(from, ST.REGION_SELECT, { customerName: name, chatMode: 'guided' });
-      return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+      // Cek apakah pelanggan pernah pesan sebelumnya
+      const lastOrder = await db.getLastOrder(from);
+      if (lastOrder && lastOrder.customer_name) {
+        await upsertSession(from, ST.REGION_SELECT, { customerName: lastOrder.customer_name, customerPhone: lastOrder.customer_phone, chatMode: 'guided' });
+        return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+      } else {
+        await upsertSession(from, ST.REGION_SELECT, { customerName: name, chatMode: 'guided' });
+        return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+      }
     case ST.REGION_SELECT:
       return sender.sendText(from, '🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊');
     case ST.REJECTED:
@@ -485,12 +530,20 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
     if (aiData?.address) aiAddress = aiData.address;
     if (aiData?.answer) aiAnswer = aiData.answer;
     
-    // Jika AI menangkap intent CONFIRM, langsung arahkan ke lokasi
+    // Jika AI menangkap intent CONFIRM, langsung arahkan ke lokasi atau konfirmasi (jika pickup)
     if (aiData?.intent === 'CONFIRM') {
       if (existingItems.length > 0) {
-        const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
-        await upsertSession(from, ST.LOCATION, session.data);
-        return sender.sendText(from, `Sip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.`);
+        if (session.data.isPickup) {
+           session.data.deliveryFee = 0;
+           if (!session.data.notes?.includes('(Pickup)')) session.data.notes = session.data.notes ? session.data.notes + ' (Pickup)' : '(Pickup)';
+           const { text: summary } = buildOrderSummary(existingItems, 0, session.data.notes);
+           await upsertSession(from, ST.CONFIRM, session.data);
+           return sender.sendText(from, `Sip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah.`);
+        } else {
+           const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
+           await upsertSession(from, ST.LOCATION, session.data);
+           return sender.sendText(from, `Sip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n📍 Mohon kirim *Lokasi/Shareloc* pengiriman Kakak ya agar saya bisa hitung ongkirnya.`);
+        }
       }
     }
   }
@@ -504,9 +557,14 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   const ambiguousItems = [];
   
   newItems.forEach(newItem => {
+    // Cek pembatalan eksplisit
+    const tLower = text ? text.toLowerCase() : '';
+    const isExplicitCancel = ['bukan', 'nggak', 'gajadi', 'gak jadi', 'cancel', 'batal'].some(k => tLower.includes(k));
+
     const pendingIndex = ambiguousPending.findIndex(ap => 
       (ap.matches && ap.matches.some(m => m.toLowerCase().includes(newItem.name.toLowerCase()))) ||
-      ap.original.toLowerCase() === newItem.name.toLowerCase()
+      ap.original.toLowerCase() === newItem.name.toLowerCase() ||
+      (isExplicitCancel && tLower.includes(ap.original.toLowerCase()))
     );
 
     if (pendingIndex !== -1) {
@@ -534,6 +592,15 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
           }
         }
         return; // Selesai untuk item ini
+      } else if (action === 'remove') {
+        // Jika action remove tapi ada multiple matches di keranjang, hapus semua matches tersebut
+        if (existingMatches.length > 1) {
+          existingMatches.forEach(m => {
+            const idx = existingItems.findIndex(e => e.name === m.name);
+            if (idx !== -1) existingItems.splice(idx, 1);
+          });
+        }
+        return; // Selesai untuk item ini (juga berarti kita tidak memproses pencarian produk baru untuk dihapus)
       } else if (existingMatches.length > 1) {
         ambiguousItems.push({ original: newItem.name, matches: existingMatches.map(m => m.name), qty: newItem.qty });
         return;
@@ -544,6 +611,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
     let p = products.find(prod => prod.name.toLowerCase() === newItem.name.toLowerCase());
     
     if (!p) {
+      if (action === 'remove') return; // Abaikan jika produk tidak ditemukan atau ambigu untuk dihapus
       const matches = products.filter(prod => prod.name.toLowerCase().includes(newItem.name.toLowerCase()));
       if (matches.length > 1) {
         ambiguousItems.push({ original: newItem.name, matches: matches.map(m => m.name), qty: newItem.qty });
@@ -638,7 +706,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
     msg += `Apakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*.`;
 
     curHistory.push({ role: 'bot', content: msg });
-    if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+    if (curHistory.length > 100) curHistory = curHistory.slice(-100);
 
     await upsertSession(from, ST.CONFIRM, { 
       ...prevSession.data, 
@@ -676,7 +744,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
             await upsertSession(from, ST.REJECTED, newSessionData);
             let rejectMsg = `⚠️ Maaf Kak, ongkir ke lokasi tersebut terlalu mahal (Rp ${fee.toLocaleString('id-ID')}). Sepertinya lokasi Kakak di luar jangkauan pengiriman kami.\n\nPemesanan via WA hanya untuk area *Jakarta* ya Kak. Untuk luar Jakarta, silakan pesan via Shopee:\n🛒 ${config.shopeeUrl || 'https://shopee.co.id/'}`;
             curHistory.push({ role: 'bot', content: rejectMsg });
-            if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+            if (curHistory.length > 100) curHistory = curHistory.slice(-100);
             return sender.sendText(from, rejectMsg);
           }
 
@@ -693,7 +761,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
           msg += `Apakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*.`;
 
           curHistory.push({ role: 'bot', content: msg });
-          if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+          if (curHistory.length > 100) curHistory = curHistory.slice(-100);
 
           await upsertSession(from, ST.CONFIRM, { 
             ...newSessionData, 
@@ -710,8 +778,7 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
       }
     }
 
-    const { text: summary } = buildOrderSummary(existingItems, undefined, finalNotes);
-    const locationMsg = `📍 Silakan kirim *Lokasi/Shareloc* Kakak untuk hitung ongkir ya!\n_(Klik 📎 → Lokasi)_`;
+    const locationMsg = `📍 Silakan ketik *alamat lengkap pengiriman* Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir.`;
 
     let msg = ``;
     if (aiAnswer && aiAnswer.trim() !== '') {
@@ -719,19 +786,22 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
     }
     
     if (aiAddress && aiAddress.trim() !== '') {
-      msg += `📍 *Alamat Kakak sudah kami catat:*\n_${aiAddress}_\n\n⚠️ Namun, sistem gagal menemukan titik koordinat pasti dari alamat tersebut.\nBoleh bantu kirimkan *Lokasi/Shareloc* WhatsApp Kakak?\n\n`;
+      msg += `📍 *Alamat Kakak sudah kami catat:*\n_${aiAddress}_\n\n⚠️ Namun, sistem gagal menemukan titik koordinat pasti dari alamat tersebut.\nBoleh bantu ketik ulang *alamat lengkap* Kakak, atau kirimkan *Lokasi/Shareloc* WhatsApp?\n\n`;
     }
 
     msg += `✅ *Pesanan Kakak:*\n\n${summary}\n\n`;
     
-    msg += `🚚 Ongkir dihitung setelah kirim lokasi\n` +
+    msg += `🚚 Ongkir dihitung setelah konfirmasi alamat\n` +
       `📦 _Pesanan bersifat PO, dikirim *besok* setelah pembayaran dikonfirmasi._\n\n` +
+      `💳 *Pembayaran via BCA:*\n` +
+      `👤 ${config.payment.bcaName}\n` +
+      `💳 ${config.payment.bcaNumber}\n\n` +
       `${locationMsg}\n\n` +
       `*Ketik:* _Batal_ / _Tambah [Nama Kue]_.\n` +
       `Mau *ubah jumlah*? Ketik: "Nastar jadi 3"`;
 
     curHistory.push({ role: 'bot', content: msg });
-    if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+    if (curHistory.length > 100) curHistory = curHistory.slice(-100);
     newSessionData.history = curHistory;
 
     await upsertSession(from, ST.LOCATION, newSessionData);
@@ -781,7 +851,7 @@ async function handleLocation(from, name, message) {
   const addr = message.location.name || `${lat},${lng}`;
 
   if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
-    return sender.sendText(from, '⚠️ Lokasi yang dikirim tidak valid Kak. Coba kirim ulang lokasi lewat fitur *Kirim Lokasi Terkini* ya.');
+    return sender.sendText(from, '⚠️ Lokasi yang dikirim tidak valid Kak. Coba kirim ulang *Lokasi/Shareloc* WhatsApp, atau ketik alamat lengkap Kakak.');
   }
 
   const q = await lalamove.getQuotation(lat, lng);

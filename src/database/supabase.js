@@ -218,6 +218,19 @@ async function getActiveOrdersByPhone(waNumber) {
   return data;
 }
 
+async function getLastOrder(waNumber) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('wa_number', waNumber)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
 async function hasPreviousOrders(waNumber) {
   const { count, error } = await supabase
     .from('orders')
@@ -494,6 +507,8 @@ module.exports = {
   getTodayOrders,
   getRecentActiveOrders,
   getActiveOrdersByPhone,
+  getLastOrder,
+  hasPreviousOrders,
   getUnpaidOrdersSince,
   getExpiredUnpaidOrders,
   upsertSession,

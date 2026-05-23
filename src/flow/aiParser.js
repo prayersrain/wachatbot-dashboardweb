@@ -70,6 +70,12 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
     logger.warn({ err: err.message }, '⚠️ Gagal mengambil FAQ untuk AI, menggunakan fallback.');
   }
 
+  let bolenSoldOutToday = false;
+  try {
+    const bolenSetting = await db.getGlobalSetting('bolen_sold_out_today');
+    if (bolenSetting === 'true') bolenSoldOutToday = true;
+  } catch(err) {}
+
   // Build state context for AI
   let stateContext = '';
   if (state === 'REJECTED') {
@@ -86,9 +92,13 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
     contextAddon += activeOrderContext;
   }
 
-  let historyAddon = '';
   if (history && history.length > 0) {
     historyAddon = `\nRIWAYAT PERCAKAPAN TERAKHIR:\n${history.map(h => `[${h.role.toUpperCase()}]: ${h.content}`).join('\n')}\n`;
+  }
+
+  let bolenContext = '';
+  if (bolenSoldOutToday) {
+    bolenContext = `\n[INFO PENTING HARI INI]:\nKhusus HARI INI, pengiriman instan untuk BOLEN (Bolen Lilit, dll) sedang KOSONG/HABIS karena hari ini kami hanya mengirimkan bolen untuk antrean PO kemarin. JIKA pelanggan mencoba memesan Bolen (baik lilit atau lainnya) untuk dikirim hari ini, beri tahu mereka secara sopan bahwa bolen hari ini habis dan pesanan bolen mereka otomatis akan dikirim BESOK. Catat saja pesanannya dengan wajar, tidak usah menolak, cukup berikan informasi tersebut di 'answer'. Jika tidak ada bolen dalam pesanan mereka, abaikan info ini.\n`;
   }
 
   for (const modelName of modelNames) {
@@ -100,6 +110,10 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
       const prompt = `
 Anda adalah asisten Yoyo Bakery yang cerdas, ramah, sangat sopan kepada orang tua (gunakan sapaan Ibu/Bapak/Kak), dan solutif. Analisis pesan pelanggan: "${text}"
 ${stateContext}${contextAddon}${historyAddon}
+${bolenContext}
+
+ATURAN OUTPUT JSON:
+1. Pastikan valid JSON. TIDAK BOLEH ada teks di luar JSON (tanpa markdown).
 
 PRODUK TERSEDIA:
 ${productList}
@@ -107,7 +121,6 @@ ${productList}
 ATURAN BISNIS & FAQ (WAJIB DITAATI 100%):
 - Shopee: Jika ditanya tentang Shopee/Toko Online, WAJIB berikan link ini: ${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}
 ${faqList}
-
 ATURAN KLASIFIKASI INTENT:
 1. Jika pelanggan menyebutkan nama kota, kecamatan, provinsi, atau daerah pengiriman (contoh: "Jatiasih", "Bekasi", "Bandung", "Cempaka Putih", "Jakarta Pusat") -> set intent "REGION_MATCH" dan tentukan apakah daerah tersebut masuk area Jakarta (DKI Jakarta) atau luar Jakarta. Isi field "region" dengan "jakarta" atau "luar_jakarta".
 2. Jika pelanggan menanyakan daftar menu, harga, katalog, pricelist, atau bertanya "ada produk/menu apa saja?" -> set intent "SHOW_MENU" (kosongkan answer). Sistem kami yang akan mengirimkan gambar katalognya. JIKA pelanggan menanyakan menu bersamaan dengan FAQ lain dan Anda terpaksa harus menjawab menggunakan teks, maka JANGAN sebutkan harga dan nama varian satu per satu. Cukup sebutkan kategori utama kami yaitu: "Roti dan Pastry" serta "Cake dan Dessert".

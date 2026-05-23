@@ -42,7 +42,7 @@ app.post('/api/send-message', async (req, res) => {
     if (session) {
       let curHistory = session.data?.history || [];
       curHistory.push({ role: 'bot', content: message });
-      if (curHistory.length > 10) curHistory = curHistory.slice(-10);
+      if (curHistory.length > 100) curHistory = curHistory.slice(-100);
       
       await upsertSession(wa_number, session.state, { 
         ...session.data, 
