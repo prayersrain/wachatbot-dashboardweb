@@ -17,8 +17,10 @@ function startStatusListener() {
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'orders' },
       async (payload) => {
-        const oldOrder = payload.old;
+        const oldOrder = payload.old || {};
         const newOrder = payload.new;
+
+        if (!newOrder || !newOrder.id) return;
 
         // Hanya proses jika status berubah
         if (oldOrder.order_status === newOrder.order_status) return;
