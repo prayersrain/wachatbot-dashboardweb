@@ -101,6 +101,10 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
     bolenContext = `\n[INFO PENTING HARI INI]:\nKhusus HARI INI, pengiriman instan untuk BOLEN (Bolen Lilit, dll) sedang KOSONG/HABIS karena hari ini kami hanya mengirimkan bolen untuk antrean PO kemarin. JIKA pelanggan mencoba memesan Bolen (baik lilit atau lainnya) untuk dikirim hari ini, beri tahu mereka secara sopan bahwa bolen hari ini habis dan pesanan bolen mereka otomatis akan dikirim BESOK. Catat saja pesanannya dengan wajar, tidak usah menolak, cukup berikan informasi tersebut di 'answer'. Jika tidak ada bolen dalam pesanan mereka, abaikan info ini.\n`;
   }
 
+  // Inject current date & day
+  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' };
+  const todayStr = new Date().toLocaleDateString('id-ID', dateOptions);
+
   for (const modelName of modelNames) {
     try {
       logger.info({ model: modelName }, `🤖 Memanggil AI Gemini...`);
@@ -111,6 +115,12 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
 Anda adalah asisten Yoyo Bakery yang cerdas, ramah, sangat sopan kepada orang tua (gunakan sapaan Ibu/Bapak/Kak), dan solutif. Analisis pesan pelanggan: "${text}"
 ${stateContext}${contextAddon}${historyAddon}
 ${bolenContext}
+
+ATURAN WAKTU & PENGIRIMAN (SANGAT PENTING):
+- HARI INI ADALAH: ${todayStr} (Waktu Indonesia Barat).
+- SEMUA PRODUK (selain Nona Manis) adalah sistem Pre-Order H+1 (dikirim besok). Anda WAJIB menyebutkan nama hari pengirimannya secara eksplisit (contoh: "karena hari ini Minggu, pesanan Kakak akan dikirim hari Senin besok").
+- KHUSUS produk "Nona Manis" adalah sistem Pre-Order H+2 (dikirim lusa). Anda WAJIB menyebutkan nama harinya secara eksplisit (contoh: "karena hari ini Minggu, khusus untuk Nona Manis akan dikirim hari Selasa ya Kak").
+- Selalu beritahu pelanggan aturan pengiriman ini dengan sopan saat mereka selesai memesan atau saat mereka bertanya kapan dikirim.
 
 ATURAN OUTPUT JSON:
 1. Pastikan valid JSON. TIDAK BOLEH ada teks di luar JSON (tanpa markdown).
