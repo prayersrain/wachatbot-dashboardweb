@@ -150,8 +150,8 @@ async function handleCustomerMessage(from, name, message) {
       // Biarkan lanjut ke FLOW LOGIC di bawah
     } else if (isLidWaitingPhone && hasPhoneNumber) {
       // Pengecualian 2: Jika user LID sedang ditanya nomor HP, biarkan lolos ke fallback bawah
-    } else if (state === ST.LOCATION && text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim())) {
-      // Pengecualian 3: Jika user mengirimkan teks panjang saat ditanya lokasi, biarkan lolos ke fallback bawah
+    } else if (state === ST.LOCATION && text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim()) && !['FAQ', 'QUESTION'].includes(aiData.intent)) {
+      // Pengecualian 3: Jika user mengirimkan teks panjang yang BUKAN FAQ saat ditanya lokasi, biarkan lolos ke fallback bawah (dianggap alamat)
     } else if (aiData.intent === 'ACKNOWLEDGE' || (state === ST.IDLE && ['OTHER', 'THANKS'].includes(aiData.intent))) {
       // Abaikan pesan basa-basi/terima kasih supaya bot tidak cerewet (chatterbot) setelah pesanan selesai
       return;
@@ -175,19 +175,34 @@ async function handleCustomerMessage(from, name, message) {
         const tLower = text ? text.toLowerCase() : '';
         const isPickup = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => tLower.includes(k) || (aiData.answer && aiData.answer.toLowerCase().includes(k)));
         
-        if (state === ST.REGION_SELECT && !isPickup) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
-        else if (state === ST.LOCATION && !isPickup) reminder = '\n\n📍 _Silakan ketik alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir._';
-        else if (state === ST.ORDER && session?.data?.items?.length > 0) reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
-        else if (state === ST.ORDER) reminder = '\n\n📝 _Silakan ketik pesanan atau perjelas nama kuenya._';
-        else if (state === ST.CONFIRM) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._';
-        else if (state === ST.PAYMENT) reminder = '\n\n⌛ _Menunggu kiriman foto bukti transfer Kakak._';
+        if (isPickup) {
+          data.isPickup = true;
+          data.deliveryFee = 0;
+          if (state === ST.REGION_SELECT) {
+             state = ST.ORDER;
+             reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
+          } else if (state === ST.LOCATION) {
+             if (!data.notes?.includes('(Pickup)')) data.notes = data.notes ? data.notes + ' (Pickup)' : '(Pickup)';
+             const { text: summary } = buildOrderSummary(data.items || [], 0, data.notes);
+             state = ST.CONFIRM;
+             reminder = `\n\nSip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah.`;
+          }
+        }
+
+        if (!isPickup) {
+          if (state === ST.REGION_SELECT) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
+          else if (state === ST.LOCATION) reminder = '\n\n📍 _Silakan ketik alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir._';
+          else if (state === ST.ORDER && session?.data?.items?.length > 0) reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
+          else if (state === ST.ORDER) reminder = '\n\n📝 _Silakan ketik pesanan atau perjelas nama kuenya._';
+          else if (state === ST.CONFIRM) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._';
+          else if (state === ST.PAYMENT) reminder = '\n\n⌛ _Menunggu kiriman foto bukti transfer Kakak._';
+        }
 
         // Cegah reminder cerewet jika hanya basa-basi atau info tambahan (kecuali pelanggan tanya FAQ murni)
-        if (['OTHER', 'THANKS', 'ACKNOWLEDGE', 'GREETING'].includes(aiData.intent)) {
+        if (['OTHER', 'THANKS', 'ACKNOWLEDGE', 'GREETING'].includes(aiData.intent) && !isPickup) {
           reminder = '';
         }
 
-        
         const fullAnswer = aiData.answer + reminder;
         history.push({ role: 'bot', content: fullAnswer });
         if (history.length > 100) history = history.slice(-100);
