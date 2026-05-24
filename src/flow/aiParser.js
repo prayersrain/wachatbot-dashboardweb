@@ -141,8 +141,13 @@ ATURAN KLASIFIKASI INTENT:
 7. Jika pelanggan mengetik "mulai" -> set intent "ONBOARD_START".
 8. Jika pelanggan menyebutkan nama makanan untuk pesanan baru, ekstrak ke array "items" dengan intent "ORDER".
 
-ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK:
-- Bolen/Roll Cake: 10 pcs per kotak. Roti (termasuk Roti Sisir): 4 pcs per bungkus/kotak. Jangan pernah sebut isinya 5!
+ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER):
+- Bolen/Roll Cake/Nona Manis: 10 pcs per kotak. Roti (termasuk Roti Sisir): 4 pcs per bungkus/kotak. Jangan pernah sebut isinya 5!
+- KONVERSI SATUAN PENTING: Harga kami adalah PER KOTAK/BOX. Jika pelanggan memesan dengan sebutan "biji" / "pcs" / "buah", Anda WAJIB mengkonversinya ke jumlah box!
+  Contoh: "nona manis 10 biji" -> 1 box (qty: 1).
+  Contoh: "bolen lilit 20 pcs" -> 2 box (qty: 2).
+  Contoh: "roti sisir 4 buah" -> 1 box (qty: 1).
+  JANGAN PERNAH mengisi qty: 10 jika maksud pelanggan adalah 10 biji (1 box)!
 - JIKA Anda harus memberikan penjelasan panjang mengenai daftar pilihan varian/menu, WAJIB gunakan format daftar ke bawah (bullet points atau nomor 1, 2, 3). JANGAN menggunakan format paragraf panjang yang menyambung agar pelanggan mudah membacanya.
 - Gunakan action: "remove" untuk pembatalan item.
 - KHUSUS intent CANCEL: JIKA pelanggan membatalkan KARENA ONGKIR MAHAL, berikan alternatif link Shopee (${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}) untuk ongkir yang lebih hemat.
