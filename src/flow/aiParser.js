@@ -44,10 +44,11 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
   }
 
   const modelNames = [
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.0-flash",
     "gemini-3.1-flash-lite-preview",
-    "gemini-2.5-flash",
-    "gemma-3-27b-it",
-    "gemini-3-flash-preview"
+    "gemini-2.5-flash"
   ];
   
   let productList = "Daftar produk tidak tersedia saat ini.";
@@ -169,7 +170,8 @@ FORMAT JSON SAJA:
 
 GAYA JAWABAN:
 - Gunakan bahasa yang sopan, sabar, dan mudah dipahami orang tua.
-- Jawaban ringkas, to the point, WAJIB gunakan bullet points jika melist banyak varian.
+- SANGAT PENTING: Jawab dengan SANGAT RINGKAS, padat, dan jelas. MAKSIMAL 2-3 kalimat pendek saja. Jangan berbasa-basi kepanjangan.
+- WAJIB gunakan bullet points jika melist banyak varian/produk agar ringkas.
 
 HANYA JSON.`;
 
