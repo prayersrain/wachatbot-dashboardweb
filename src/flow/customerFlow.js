@@ -139,6 +139,17 @@ async function handleCustomerMessage(from, name, message) {
     aiData = await aiParseOrder(text, state, session?.data?.ambiguousPending, activeOrderContext, aiHistory);
   }
 
+  // ═══ GLOBAL PICKUP DETECTION ═══
+  const tLowerGlobal = text ? text.toLowerCase() : '';
+  const isPickupGlobal = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => tLowerGlobal.includes(k) || (aiData?.answer && aiData.answer.toLowerCase().includes(k)));
+  if (isPickupGlobal && session && session.data) {
+    session.data.isPickup = true;
+    session.data.deliveryFee = 0;
+    if (!session.data.notes?.includes('(Pickup)')) {
+      session.data.notes = session.data.notes ? session.data.notes + ' (Pickup)' : '(Pickup)';
+    }
+  }
+
   // ═══ SMART INTERRUPT (state-independent) ═══
   // Jawab pertanyaan kapan saja tanpa merusak state saat ini
   if (aiData && ['FAQ', 'QUESTION', 'THANKS', 'SHOW_MENU', 'OTHER', 'GREETING', 'ACKNOWLEDGE', 'ADMIN'].includes(aiData.intent)) {
@@ -752,8 +763,10 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
 
   const prevSession = await getSession(from);
 
-  if (prevSession?.data?.customerLat && prevSession?.data?.customerLng) {
-    const fee = prevSession.data.deliveryFee || 0;
+  const isPickupNow = prevSession?.data?.isPickup || false;
+
+  if (isPickupNow || (prevSession?.data?.customerLat && prevSession?.data?.customerLng)) {
+    const fee = isPickupNow ? 0 : (prevSession.data.deliveryFee || 0);
     const { text: summary, itemsTotal } = buildOrderSummary(existingItems, fee, finalNotes);
     const finalTotal = itemsTotal + fee;
 
@@ -763,7 +776,9 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
       msg += `${aiAnswer}\n\n`;
     }
     msg += `✅ *Pesanan Kakak Diperbarui:*\n\n${summary}\n\n`;
-    msg += `📍 Ongkir tetap menggunakan lokasi sebelumnya.\n`;
+    if (!isPickupNow) {
+      msg += `📍 Ongkir tetap menggunakan lokasi sebelumnya.\n`;
+    }
     msg += `💰 *TOTAL BARU: Rp ${finalTotal.toLocaleString('id-ID')}*\n\n`;
     msg += `Apakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*.`;
 
