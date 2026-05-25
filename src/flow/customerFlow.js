@@ -145,9 +145,12 @@ async function handleCustomerMessage(from, name, message) {
     const isLidWaitingPhone = state === ST.CONFIRM && from.endsWith('@lid') && (!session?.data?.customerPhone || session.data.customerPhone === '');
     const hasPhoneNumber = /(\+?62|0)\d{8,13}/.test(text.replace(/[\s-]/g, ''));
 
-    // Pengecualian: Jika di awal (IDLE) dan sapaan, biarkan flow normal berjalan
-    if (state === ST.IDLE && aiData.intent === 'GREETING') {
-      // Biarkan lanjut ke FLOW LOGIC di bawah
+    const activeOrdersCheck = await db.getActiveOrdersByPhone(from);
+    const hasActiveOrder = activeOrdersCheck && activeOrdersCheck.length > 0;
+
+    // Pengecualian: Jika di awal (IDLE) dan sapaan, biarkan flow normal berjalan HANYA jika tidak ada pesanan aktif
+    if (state === ST.IDLE && aiData.intent === 'GREETING' && !hasActiveOrder) {
+      // Biarkan lanjut ke FLOW LOGIC di bawah untuk onboarding pelanggan baru
     } else if (isLidWaitingPhone && hasPhoneNumber) {
       // Pengecualian 2: Jika user LID sedang ditanya nomor HP, biarkan lolos ke fallback bawah
     } else if (state === ST.LOCATION && text && text.length > 10 && !['batal', 'kembali'].includes(text.toLowerCase().trim()) && !['FAQ', 'QUESTION'].includes(aiData.intent)) {
