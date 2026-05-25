@@ -77,7 +77,7 @@ const MENU_PAGE2 = path.join(__dirname, '..', 'assets', 'menu-page2.jpg');
  */
 async function handleCustomerMessage(from, name, message) {
   const session = await getSession(from);
-  const state = session ? session.state : ST.IDLE;
+  let state = session ? session.state : ST.IDLE;
   const text = message.text?.body || '';
 
   // 1. UPDATE HISTORY (Selalu catat pesan pengguna apapun state-nya)
