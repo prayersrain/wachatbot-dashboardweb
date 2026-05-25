@@ -603,6 +603,9 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   }
 
   if ((!newItems || newItems.length === 0) && !aiAddress) {
+    if (aiAnswer) {
+      return sender.sendText(from, aiAnswer + '\n\n📝 _Silakan ketik pesanan Kakak ya._');
+    }
     if (existingItems.length > 0) return sender.sendText(from, 'Maaf Kak, saya tidak paham tambahan pesanannya. Bisa diulang? (Contoh: "Tambah Nastar 1", atau ketik "Konfirmasi" untuk lanjut)');
     return sender.sendText(from, 'Maaf Kak, saya tidak menemukan nama roti dalam pesan Kakak. Bisa diulang? (Contoh: "Pesan Nastar 2")');
   }
