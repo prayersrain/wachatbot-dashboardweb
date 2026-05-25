@@ -211,10 +211,12 @@ async function getRecentActiveOrders(days = 3) {
 }
 
 async function getActiveOrdersByPhone(waNumber) {
+  const cleanPhone = waNumber.replace('@c.us', '').replace(/\D/g, '');
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('wa_number', waNumber)
+    // We search with OR just in case it was saved with or without @c.us
+    .or(`wa_number.eq.${cleanPhone},wa_number.eq.${waNumber}`)
     .in('order_status', ['new', 'waiting_payment', 'confirmed', 'packing', 'shipping'])
     .order('created_at', { ascending: false });
 
@@ -223,10 +225,11 @@ async function getActiveOrdersByPhone(waNumber) {
 }
 
 async function getLastOrder(waNumber) {
+  const cleanPhone = waNumber.replace('@c.us', '').replace(/\D/g, '');
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('wa_number', waNumber)
+    .or(`wa_number.eq.${cleanPhone},wa_number.eq.${waNumber}`)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
