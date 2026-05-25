@@ -159,10 +159,10 @@ FORMAT JSON SAJA:
 {
   "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|GREETING|THANKS|FAQ|SHOW_MENU|OTHER|ACKNOWLEDGE|ADMIN|ONBOARD_START|REGION_MATCH",
   "items": [{"name": "nama_roti", "qty": 2, "action": "add/update/remove"}],
-  "customerName": "nama jika ada",
+  "customerName": "HANYA NAMA ORANG pelanggan/penerima (contoh: Budi). JANGAN masukkan alamat, nomor HP, atau kata lain. Jika tidak ada, null.",
   "customerPhone": "nomor HP JIKA pelanggan mengoreksi/memberikan nomor HP (contoh: 0812345). Jika tidak ada, null.",
   "notes": "catatan pesanan jika ada",
-  "address": "alamat pengiriman teks JIKA ada",
+  "address": "HANYA teks ALAMAT PENGIRIMAN jika diketik eksplisit. JANGAN masukkan nama orang. Jika tidak ada, null.",
   "region": "jakarta|luar_jakarta",
   "answer": "WAJIB ISI untuk FAQ/GREETING/THANKS/OTHER/REGION_MATCH."
 }

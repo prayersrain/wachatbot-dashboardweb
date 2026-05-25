@@ -334,7 +334,7 @@ async function handleCustomerMessage(from, name, message) {
     }
 
     // --- CONFIRM ---
-    if (aiData.intent === 'CONFIRM' && (state === ST.ORDER || state === ST.LOCATION || state === ST.CONFIRM || state === ST.PAYMENT)) {
+    if (aiData.intent === 'CONFIRM' && (state === ST.ORDER || state === ST.LOCATION || state === ST.CONFIRM)) {
       if (state === ST.ORDER) {
         if (session?.data?.items?.length > 0) {
           const { text: summary } = buildOrderSummary(session.data.items, undefined, session.data.notes);
@@ -966,10 +966,12 @@ async function handleNamePhoneCollection(from, name, text, data) {
 
   if (phoneMatch) {
     cPhone = phoneMatch[0].replace(/[\s-]/g, '').replace(/^0/, '62').replace(/^\+/, '');
-    const nameCandidate = text.replace(phoneMatch[0], '')
+    let nameCandidate = text.replace(phoneMatch[0], '')
                               .replace(/no\s*hp|hp|nomor|whatsapp|wa|atas\s*nama|nama/gi, '')
                               .replace(/[,.\-:;]/g, '')
                               .trim();
+    nameCandidate = nameCandidate.split('\n')[0].trim(); // Ambil baris pertama saja
+    if (nameCandidate.length > 30) nameCandidate = nameCandidate.substring(0, 30); // Batasi panjang nama
     if (nameCandidate.length >= 2) cName = nameCandidate;
   } else {
     const cleanText = text.replace(/[,.\-:;]/g, '').trim();
