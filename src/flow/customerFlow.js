@@ -160,7 +160,8 @@ async function handleCustomerMessage(from, name, message) {
       return;
     } else if (aiData.intent === 'ADMIN') {
       await upsertSession(from, ST.ADMIN_TAKEOVER, data);
-      return sender.sendText(from, "Mohon maaf atas ketidaknyamanannya Kak. 🙏 Pesan Kakak sudah kami teruskan ke tim Admin. Harap tunggu sebentar ya, admin manusia kami akan segera membalas chat ini.");
+      const msg = aiData.answer || "Mohon maaf atas ketidaknyamanannya Kak. 🙏 Pesan Kakak sudah kami teruskan ke tim Admin. Harap tunggu sebentar ya, admin manusia kami akan segera membalas chat ini.";
+      return sender.sendText(from, msg);
     } else {
       if (aiData.intent === 'SHOW_MENU') {
         await sendMenuImages(from, 'Silakan pilih menu favorit Kakak! 👇');

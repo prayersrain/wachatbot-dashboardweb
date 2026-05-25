@@ -129,6 +129,10 @@ ATURAN OUTPUT JSON:
 PRODUK TERSEDIA:
 ${productList}
 
+ATURAN KOMPLAIN / CEK STATUS PESANAN:
+- JIKA pelanggan menanyakan status pesanan, dan Anda TIDAK MELIHAT 'INFO PESANAN AKTIF' pada konteks yang diberikan, Anda DILARANG meminta nama atau nomor HP mereka (karena Anda tidak punya akses ke sistem pencarian).
+- Jawablah dengan sopan bahwa Anda tidak menemukan pesanan aktif pada nomor WhatsApp ini, lalu gunakan intent "ADMIN" agar percakapan diteruskan ke admin manusia yang bisa memeriksanya secara manual.
+
 ATURAN BISNIS & FAQ (WAJIB DITAATI 100%):
 - Shopee: Jika ditanya tentang Shopee/Toko Online atau jika pengiriman ke luar Jakarta, WAJIB arahkan untuk order ke Shopee dan berikan link ini: ${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}
 ${faqList}
