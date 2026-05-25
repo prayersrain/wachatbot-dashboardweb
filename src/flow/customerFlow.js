@@ -462,7 +462,7 @@ async function handleCustomerMessage(from, name, message) {
         welcomeMsg += `🌍 Sebelum lanjut, boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊`;
         return sender.sendText(from, welcomeMsg);
       } else {
-        return await handleOrderInput(from, name, text, aiData.items, aiData.customerName, aiData.notes, aiData.answer, aiData.address);
+        return await handleOrderInput(from, name, text, aiData.items, aiData.customerName, aiData.notes, aiData.answer, aiData.address, true);
       }
     }
   }
@@ -489,7 +489,11 @@ async function handleCustomerMessage(from, name, message) {
     case ST.REJECTED:
       return sender.sendText(from, `Ada yang bisa kami bantu lagi Kak? 😊\n\nUntuk pemesanan, silakan kunjungi Shopee kami ya:\n🛒 *${config.shopeeUrl || 'https://shopee.co.id/yoyobakery'}*\n\nTerima kasih! 😊🍞`);
     case ST.ORDER: 
-      return await handleOrderInput(from, name, text);
+      if (aiData) {
+        return await handleOrderInput(from, name, text, aiData.items, aiData.customerName, aiData.notes, aiData.answer, aiData.address, true);
+      } else {
+        return await handleOrderInput(from, name, text);
+      }
     case ST.LOCATION:
       if (message.type === 'location') {
          return await handleLocation(from, name, message);
@@ -566,7 +570,7 @@ async function handleGreeting(from, name) {
 // ORDER HANDLING
 // ============================================================
 
-async function handleOrderInput(from, name, text, aiItems = null, aiName = null, aiNotes = null, aiAnswer = null, aiAddress = null) {
+async function handleOrderInput(from, name, text, aiItems = null, aiName = null, aiNotes = null, aiAnswer = null, aiAddress = null, hasAiParsed = false) {
   const session = await getSession(from);
   let existingItems = (session && session.data && session.data.items) ? session.data.items : [];
   let ambiguousPending = (session && session.data && session.data.ambiguousPending) ? session.data.ambiguousPending : [];
@@ -575,17 +579,18 @@ async function handleOrderInput(from, name, text, aiItems = null, aiName = null,
   let finalName = aiName || (session && session.data && session.data.customerName) || name;
   let finalNotes = aiNotes || (session && session.data && session.data.notes) || '';
   
-  if (!newItems || newItems.length === 0) {
+  let aiDataLocal = null;
+  if ((!newItems || newItems.length === 0) && !hasAiParsed) {
     logger.info({ text }, '🧠 Mencoba parse ulang pesanan via AI...');
-    const aiData = await aiParseOrder(text, ST.ORDER, ambiguousPending);
-    newItems = aiData?.items || [];
-    if (aiData?.customerName) finalName = aiData.customerName;
-    if (aiData?.notes) finalNotes = aiData.notes;
-    if (aiData?.address) aiAddress = aiData.address;
-    if (aiData?.answer) aiAnswer = aiData.answer;
+    aiDataLocal = await aiParseOrder(text, ST.ORDER, ambiguousPending);
+    newItems = aiDataLocal?.items || [];
+    if (aiDataLocal?.customerName) finalName = aiDataLocal.customerName;
+    if (aiDataLocal?.notes) finalNotes = aiDataLocal.notes;
+    if (aiDataLocal?.address) aiAddress = aiDataLocal.address;
+    if (aiDataLocal?.answer) aiAnswer = aiDataLocal.answer;
     
     // Jika AI menangkap intent CONFIRM, langsung arahkan ke lokasi atau konfirmasi (jika pickup)
-    if (aiData?.intent === 'CONFIRM') {
+    if (aiDataLocal?.intent === 'CONFIRM') {
       if (existingItems.length > 0) {
         if (session.data.isPickup) {
            session.data.deliveryFee = 0;
