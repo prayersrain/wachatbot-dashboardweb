@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
-import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X, AlertCircle } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X, AlertCircle, Calendar } from 'lucide-react';
 
 // Defined OUTSIDE the component to avoid re-creation on every render
 const SectionCard = ({ icon: Icon, title, children }) => (
@@ -33,6 +33,8 @@ export default function Settings() {
   const [showAddFaq, setShowAddFaq] = useState(false);
 
   const [bolenSoldOut, setBolenSoldOut] = useState(false);
+  const [holidays, setHolidays] = useState([]);
+  const [newHoliday, setNewHoliday] = useState('');
 
   useEffect(() => {
     fetchFaqs();
@@ -41,9 +43,14 @@ export default function Settings() {
 
   const fetchGlobalSettings = async () => {
     try {
-      const { data, error } = await supabase.from('global_settings').select('*').eq('key', 'bolen_sold_out_today').single();
-      if (data) {
-        setBolenSoldOut(data.value === 'true');
+      const { data: bolenData } = await supabase.from('sessions').select('data').eq('wa_number', 'system:bolen_sold_out_today').single();
+      if (bolenData && bolenData.data) {
+        setBolenSoldOut(bolenData.data.value === 'true');
+      }
+      
+      const { data: holidayData } = await supabase.from('sessions').select('data').eq('wa_number', 'system:holiday_dates').single();
+      if (holidayData && holidayData.data && holidayData.data.value) {
+        setHolidays(JSON.parse(holidayData.data.value));
       }
     } catch (err) {
       // It's okay if not exists yet
@@ -54,10 +61,53 @@ export default function Settings() {
     const newVal = !bolenSoldOut;
     setBolenSoldOut(newVal);
     try {
-      await supabase.from('global_settings').upsert({ key: 'bolen_sold_out_today', value: String(newVal) }, { onConflict: 'key' });
+      await supabase.from('sessions').upsert({ 
+        wa_number: 'system:bolen_sold_out_today', 
+        state: 'SYSTEM', 
+        data: { value: String(newVal) }, 
+        updated_at: new Date().toISOString() 
+      }, { onConflict: 'wa_number' });
       toast.success(newVal ? 'Bolen Instan diset HABIS hari ini' : 'Bolen Instan diset TERSEDIA hari ini');
     } catch (err) {
       toast.error('Gagal update status Bolen');
+      setBolenSoldOut(!newVal); // revert
+    }
+  };
+
+  const handleAddHoliday = async (e) => {
+    e.preventDefault();
+    if (!newHoliday) return;
+    const updatedHolidays = [...new Set([...holidays, newHoliday])].sort();
+    setHolidays(updatedHolidays);
+    try {
+      await supabase.from('sessions').upsert({ 
+        wa_number: 'system:holiday_dates', 
+        state: 'SYSTEM', 
+        data: { value: JSON.stringify(updatedHolidays) }, 
+        updated_at: new Date().toISOString() 
+      }, { onConflict: 'wa_number' });
+      setNewHoliday('');
+      toast.success('Tanggal libur berhasil ditambahkan');
+    } catch (err) {
+      toast.error('Gagal menambahkan tanggal libur');
+      setHolidays(holidays); // revert
+    }
+  };
+
+  const handleRemoveHoliday = async (dateToRemove) => {
+    const updatedHolidays = holidays.filter(d => d !== dateToRemove);
+    setHolidays(updatedHolidays);
+    try {
+      await supabase.from('sessions').upsert({ 
+        wa_number: 'system:holiday_dates', 
+        state: 'SYSTEM', 
+        data: { value: JSON.stringify(updatedHolidays) }, 
+        updated_at: new Date().toISOString() 
+      }, { onConflict: 'wa_number' });
+      toast.success('Tanggal libur dihapus');
+    } catch (err) {
+      toast.error('Gagal menghapus tanggal libur');
+      setHolidays(holidays); // revert
     }
   };
 
@@ -198,6 +248,54 @@ export default function Settings() {
           >
             <div className={`w-6 h-6 bg-white rounded-full shadow absolute top-1 transition-all duration-300 ${bolenSoldOut ? 'left-7' : 'left-1'}`} />
           </button>
+        </div>
+      </SectionCard>
+
+      {/* Holiday Calendar */}
+      <SectionCard icon={Calendar} title="Kalender Libur Nasional / Toko">
+        <p className="text-sm text-stone-muted mb-4">Tambahkan tanggal di mana toko libur / tidak ada pengiriman. Pesanan PO otomatis diundur ke hari kerja berikutnya.</p>
+        
+        <form onSubmit={handleAddHoliday} className="flex gap-2 mb-6">
+          <input
+            type="date"
+            value={newHoliday}
+            onChange={(e) => setNewHoliday(e.target.value)}
+            className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            required
+          />
+          <button
+            type="submit"
+            className="bg-primary text-white px-6 rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            <Plus size={18} /> Tambah
+          </button>
+        </form>
+
+        <div className="space-y-2">
+          {holidays.length === 0 ? (
+            <div className="text-center py-6 bg-stone-50 border border-stone-100 rounded-2xl">
+              <p className="text-stone-400 text-sm">Belum ada tanggal libur yang ditambahkan.</p>
+            </div>
+          ) : (
+            holidays.map((date) => (
+              <div key={date} className="flex flex-wrap items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl p-4 group hover:border-primary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                    <Calendar size={18} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-secondary">{new Date(date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRemoveHoliday(date)}
+                  className="text-stone-400 hover:text-rose-500 p-2 rounded-lg hover:bg-rose-50 transition-colors"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))
+          )}
         </div>
       </SectionCard>
 

@@ -77,6 +77,38 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
     if (bolenSetting === 'true') bolenSoldOutToday = true;
   } catch(err) {}
 
+  let holidays = [];
+  try {
+    const holidaySetting = await db.getGlobalSetting('holiday_dates');
+    if (holidaySetting) holidays = JSON.parse(holidaySetting);
+  } catch(err) {}
+
+  // Compute next shipping dates skipping holidays
+  const computeNextShipping = (daysToAdd) => {
+    let date = new Date();
+    // Gunakan zona waktu Jakarta agar aman
+    const tzOffset = 7 * 60 * 60 * 1000;
+    const jktTime = new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + tzOffset);
+    
+    let added = 0;
+    while (added < daysToAdd) {
+      jktTime.setDate(jktTime.getDate() + 1);
+      // Format YYYY-MM-DD
+      const dateStr = jktTime.toISOString().split('T')[0];
+      if (!holidays.includes(dateStr)) {
+        added++;
+      }
+    }
+    return jktTime;
+  };
+
+  const nextDate = computeNextShipping(1);
+  const nonaManisDate = computeNextShipping(2);
+  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' };
+  const nextShippingStr = nextDate.toLocaleDateString('id-ID', dateOptions);
+  const nonaManisShippingStr = nonaManisDate.toLocaleDateString('id-ID', dateOptions);
+  const todayStr = new Date().toLocaleDateString('id-ID', dateOptions);
+
   // Build state context for AI
   let stateContext = '';
   if (state === 'REJECTED') {
@@ -99,12 +131,8 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
 
   let bolenContext = '';
   if (bolenSoldOutToday) {
-    bolenContext = `\n[INFO PENTING HARI INI]:\nKhusus HARI INI, pengiriman instan untuk BOLEN (Bolen Lilit, dll) sedang KOSONG/HABIS karena hari ini kami hanya mengirimkan bolen untuk antrean PO kemarin. JIKA pelanggan mencoba memesan Bolen (baik lilit atau lainnya) untuk dikirim hari ini, beri tahu mereka secara sopan bahwa bolen hari ini habis dan pesanan bolen mereka otomatis akan dikirim BESOK. Catat saja pesanannya dengan wajar, tidak usah menolak, cukup berikan informasi tersebut di 'answer'. Jika tidak ada bolen dalam pesanan mereka, abaikan info ini.\n`;
+    bolenContext = `\n[INFO PENTING HARI INI]:\nKhusus HARI INI, pengiriman instan untuk BOLEN (Bolen Lilit, dll) sedang KOSONG/HABIS karena hari ini kami hanya mengirimkan bolen untuk antrean PO kemarin. JIKA pelanggan mencoba memesan Bolen (baik lilit atau lainnya) untuk dikirim hari ini, beri tahu mereka secara sopan bahwa bolen hari ini habis dan pesanan bolen mereka otomatis akan dikirim ${nextShippingStr}. Catat saja pesanannya dengan wajar, tidak usah menolak, cukup berikan informasi tersebut di 'answer'. Jika tidak ada bolen dalam pesanan mereka, abaikan info ini.\n`;
   }
-
-  // Inject current date & day
-  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jakarta' };
-  const todayStr = new Date().toLocaleDateString('id-ID', dateOptions);
 
   for (const modelName of modelNames) {
     try {
@@ -119,8 +147,8 @@ ${bolenContext}
 
 ATURAN WAKTU & PENGIRIMAN (SANGAT PENTING):
 - HARI INI ADALAH: ${todayStr} (Waktu Indonesia Barat).
-- SEMUA PRODUK (selain Nona Manis) adalah sistem Pre-Order H+1 (dikirim besok). Anda WAJIB menyebutkan nama hari pengirimannya secara eksplisit (contoh: "karena hari ini Minggu, pesanan Kakak akan dikirim hari Senin besok").
-- KHUSUS produk "Nona Manis" adalah sistem Pre-Order H+2 (dikirim lusa). Anda WAJIB menyebutkan nama harinya secara eksplisit (contoh: "karena hari ini Minggu, khusus untuk Nona Manis akan dikirim hari Selasa ya Kak").
+- SEMUA PRODUK (selain Nona Manis) adalah sistem Pre-Order. Pengiriman terdekat berikutnya adalah: ${nextShippingStr}. Anda WAJIB menyebutkan nama hari pengirimannya secara eksplisit (contoh: "karena pesanan dibuat hari ini, pesanan Kakak akan dikirim hari ${nextShippingStr} ya").
+- KHUSUS produk "Nona Manis" adalah sistem Pre-Order H+2. Pengiriman terdekat untuk Nona Manis adalah: ${nonaManisShippingStr}. Anda WAJIB menyebutkannya secara eksplisit (contoh: "khusus untuk Nona Manis akan dikirim hari ${nonaManisShippingStr} ya Kak").
 - Selalu beritahu pelanggan aturan pengiriman ini dengan sopan saat mereka selesai memesan atau saat mereka bertanya kapan dikirim.
 
 ATURAN OUTPUT JSON:

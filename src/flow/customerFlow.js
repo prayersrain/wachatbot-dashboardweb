@@ -202,14 +202,28 @@ async function handleCustomerMessage(from, name, message) {
              state = ST.CONFIRM;
              reminder = `\n\nSip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah.`;
           }
+          // If in ST.CONFIRM, we should rebuild the summary to reflect 0 delivery fee
+          else if (state === ST.CONFIRM) {
+             if (!data.notes?.includes('(Pickup)')) data.notes = data.notes ? data.notes + ' (Pickup)' : '(Pickup)';
+             const { text: summary } = buildOrderSummary(data.items || [], 0, data.notes);
+             reminder = `\n\nSiap Kak, tanpa ongkir ya! Totalnya jadi:\n\n${summary}\n\n✅ Balas *Konfirmasi* jika pesanan sudah benar, atau *Kembali* jika ingin mengubah.`;
+          }
         }
 
-        if (!isPickup) {
+        // Deteksi jika AI memberikan jawaban penolakan (Shopee) karena area di luar jangkauan
+        const isShopeeRejection = aiData.answer && aiData.answer.toLowerCase().includes('shopee');
+        if (isShopeeRejection && state === ST.LOCATION) {
+           data.history = [];
+           await upsertSession(from, ST.REJECTED, data);
+           return sender.sendText(from, aiData.answer); // Langsung kirim jawaban tanpa reminder tambahan
+        }
+
+        if (!isPickup || state === ST.PAYMENT) {
           if (state === ST.REGION_SELECT) reminder = '\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_';
           else if (state === ST.LOCATION) reminder = '\n\n📍 _Silakan ketik alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir._';
           else if (state === ST.ORDER && session?.data?.items?.length > 0) reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
           else if (state === ST.ORDER) reminder = '\n\n📝 _Silakan ketik pesanan atau perjelas nama kuenya._';
-          else if (state === ST.CONFIRM) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._';
+          else if (state === ST.CONFIRM && !isPickup) reminder = '\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut, atau *Kembali* untuk mengubah pesanan._';
           else if (state === ST.PAYMENT) reminder = '\n\n⌛ _Menunggu kiriman foto bukti transfer Kakak._';
         }
 
@@ -541,6 +555,11 @@ async function handleCustomerMessage(from, name, message) {
           if (s && s.data.totalPrice) {
             return await finalizeOrder(from, name, s.data);
           }
+        }
+
+        // Tangkap alamat jika diinput saat confirm
+        if (tConfirm.length > 15 && (tConfirm.includes('jl') || tConfirm.includes('jalan') || tConfirm.includes('gang') || tConfirm.includes('blok') || aiData?.intent === 'REGION_MATCH' || aiData?.address)) {
+          return sender.sendText(from, 'Kak, jika ingin mengubah alamat pengiriman, silakan ketik *Kembali* terlebih dahulu ya.\n\nJika pesanan dan alamat sebelumnya sudah benar, silakan balas *Konfirmasi*.');
         }
       }
       return sender.sendText(from, '✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah. 🙏');
