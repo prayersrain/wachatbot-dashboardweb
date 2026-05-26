@@ -189,17 +189,17 @@ async function handleCustomerMessage(from, name, message) {
         }
         const tLower = text ? text.toLowerCase() : '';
         const isPickup = ['ambil sendiri', 'pickup', 'ambil ke toko', 'ke sana', 'kesana', 'ambil langsung'].some(k => tLower.includes(k) || (aiData.answer && aiData.answer.toLowerCase().includes(k)));
-        
+        let nextState = state;
         if (isPickup) {
           data.isPickup = true;
           data.deliveryFee = 0;
           if (state === ST.REGION_SELECT) {
-             state = ST.ORDER;
+             nextState = ST.ORDER;
              reminder = '\n\n📝 _Silakan ketik nama kue & jumlahnya._';
           } else if (state === ST.LOCATION) {
              if (!data.notes?.includes('(Pickup)')) data.notes = data.notes ? data.notes + ' (Pickup)' : '(Pickup)';
              const { text: summary } = buildOrderSummary(data.items || [], 0, data.notes);
-             state = ST.CONFIRM;
+             nextState = ST.CONFIRM;
              reminder = `\n\nSip Kak! Pesanan sudah dicatat:\n\n${summary}\n\n✅ Balas *Konfirmasi* jika pesanan sudah benar ya Kak, atau *Kembali* jika ingin mengubah.`;
           }
           // If in ST.CONFIRM, we should rebuild the summary to reflect 0 delivery fee
@@ -236,7 +236,7 @@ async function handleCustomerMessage(from, name, message) {
         history.push({ role: 'bot', content: fullAnswer });
         if (history.length > 100) history = history.slice(-100);
         data.history = history;
-        await upsertSession(from, state, data);
+        await upsertSession(from, nextState, data);
 
         await sender.sendText(from, fullAnswer);
       }

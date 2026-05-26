@@ -86,20 +86,16 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
   // Compute next shipping dates skipping holidays
   const computeNextShipping = (daysToAdd) => {
     let date = new Date();
-    // Gunakan zona waktu Jakarta agar aman
-    const tzOffset = 7 * 60 * 60 * 1000;
-    const jktTime = new Date(date.getTime() + (date.getTimezoneOffset() * 60000) + tzOffset);
-    
     let added = 0;
     while (added < daysToAdd) {
-      jktTime.setDate(jktTime.getDate() + 1);
-      // Format YYYY-MM-DD
-      const dateStr = jktTime.toISOString().split('T')[0];
+      date.setDate(date.getDate() + 1);
+      // Format YYYY-MM-DD in Jakarta Time
+      const dateStr = date.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
       if (!holidays.includes(dateStr)) {
         added++;
       }
     }
-    return jktTime;
+    return date;
   };
 
   const nextDate = computeNextShipping(1);
