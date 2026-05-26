@@ -1,0 +1,1248 @@
+[
+  {
+    "wa_number": "31718484476159@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Selamat pagi Kak"
+        },
+        {
+          "role": "user",
+          "content": "Kak kl pny dikirim hr ini ya"
+        },
+        {
+          "role": "bot",
+          "content": "Selamat pagi, Kak! Untuk pengiriman hari ini (Selasa) hanya bisa khusus untuk produk Bolen area Jakarta ya Kak. Untuk produk roti/roll cake lainnya akan dikirim hari Rabu besok, sedangkan khusus Nona Manis akan dikirim hari Kamis. Kakak rencana ingin memesan produk apa?\n\n🌍 _Boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊_"
+        },
+        {
+          "role": "user",
+          "content": "Itu pesanan sy kmrn"
+        },
+        {
+          "role": "user",
+          "content": "Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\nPesanan Kakak sudah saya catat ya:\n1. *Bolen Coklat Keju* (1 box)\n2. *Roti Sisir Mix* (1 box)\n\n🌍 Sebelum lanjut, boleh tau Kakak berada di kota/daerah mana? Sebut saja nama wilayahnya ya Kak. 😊"
+        },
+        {
+          "role": "user",
+          "content": "Itu kak psnan sy kmrn"
+        },
+        {
+          "role": "user",
+          "content": "📋 *Ringkasan Pesanan:*\n\n🧾 *Ringkasan Pesanan:*\n\n1. Bolen Coklat Keju\n   1x Rp 68.000 = Rp 68.000\n2. Roti Sisir Mix\n   1x Rp 58.000 = Rp 58.000\n\n📦 Subtotal: Rp 126.000\n🚚 Ongkir: Rp 13.000\n━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: Rp 139.000*\n\n📝 *Catatan Khusus:* Minta dikirim siang ini ke Kemayoran jika memungkinkan\n\n📏 Jarak: 5.1 km\n📍 Tujuan: Jl. Mortir No.8, RT.6/RW.5, Sumur Batu, Kec. Kemayoran, Kota Jakarta Pusat, Daerah Khusus Ibukota Jakarta 10640, Indonesia\n\n━━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: Rp 139.000*\n━━━━━━━━━━━━━━━━━━━\n\n💳 *Transfer ke:*\n🏦 BCA\n👤 Cici Yohani\n💳 7420414000\n\n📦 _Pesanan PO — dikirim *besok* setelah pembayaran dikonfirmasi._\n\n*Apakah sudah benar?*\nBalas *Konfirmasi* atau *Kembali*."
+        },
+        {
+          "role": "user",
+          "content": "Kl sy trf sekarang, bisa dikirim hari ini"
+        },
+        {
+          "role": "user",
+          "content": "Bgm Kak, apakah bisa, lokasinya dekat kakak koq"
+        },
+        {
+          "role": "user",
+          "content": "Anak sy suka roti sisirnya, enak bngt katanya"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Yanti 🌷"
+    },
+    "updated_at": "2026-05-26T03:16:37.304+00:00"
+  },
+  {
+    "wa_number": "269938912686319@lid",
+    "state": "CONFIRM",
+    "data": {
+      "items": [
+        {
+          "qty": 2,
+          "name": "Bolen Coklat Keju",
+          "price": 68000
+        }
+      ],
+      "notes": "Pelanggan melakukan pickup mandiri.",
+      "history": [
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Kak roti 2 bolen yah🙏 Ntar d ambil"
+        },
+        {
+          "role": "user",
+          "content": "Percetakan negara.. Kak"
+        },
+        {
+          "role": "user",
+          "content": "Udah sering kok"
+        },
+        {
+          "role": "bot",
+          "content": "Baik Bapak/Ibu, pesanan 2 box Bolen sudah kami catat ya. Mohon maaf sekali, untuk hari ini stok bolen sedang habis, sehingga pesanan Bapak/Ibu akan kami proses untuk pengiriman besok, hari Rabu 27 Mei 2026 ya. Terima kasih atas pengertiannya.\n\n🤔 Maaf Kak, ada yang perlu diperjelas:\n\n❓ *(2 pcs) \"Bolen\"* — Kakak maksudnya yang mana?\n   • Bolen Full Coklat\n   • Bolen Full Keju\n   • Bolen Coklat Keju\n\nSilakan balas rinciannya ya Kak. 🙏"
+        },
+        {
+          "role": "user",
+          "content": "Bolen 2 paket"
+        },
+        {
+          "role": "bot",
+          "content": "Baik Ibu/Bapak, pesanan 2 box Bolen Coklat Keju sudah kami catat ya. Mengingat hari ini Selasa, stok bolen sudah habis, maka pesanan Bapak/Ibu akan kami proses dan kirimkan di hari Rabu besok. Terima kasih banyak atas kesabarannya ya, Kak.\n\n✅ *Pesanan Kakak:*\n\n🧾 *Ringkasan Pesanan:*\n\n1. Bolen Coklat Keju\n   2x Rp 68.000 = Rp 136.000\n\n📦 Subtotal: Rp 136.000\n\n📝 *Catatan Khusus:* Diambil di Percetakan Negara\n\n🚚 Ongkir dihitung setelah konfirmasi alamat\n📦 _Pesanan bersifat PO, dikirim *besok* setelah pembayaran dikonfirmasi._\n\n💳 *Pembayaran via BCA:*\n👤 Cici Yohani\n💳 7420414000\n\n📍 Silakan ketik *alamat lengkap pengiriman* Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir.\n\n*Ketik:* _Batal_ / _Tambah [Nama Kue]_.\nMau *ubah jumlah*? Ketik: \"Nastar jadi 3\""
+        },
+        {
+          "role": "user",
+          "content": "Coklat keju\nBolen 2 paket"
+        },
+        {
+          "role": "bot",
+          "content": "Baik Ibu/Bapak, pesanan 2 box Bolen Coklat Keju sudah kami catat ya. Mengingat hari ini Selasa, stok untuk hari ini habis, maka pesanan akan kami proses dan kirimkan di hari Rabu besok. Mohon kirimkan alamat lengkap atau shareloc agar kami bisa menghitung ongkirnya ya, Kak.\n\n✅ *Pesanan Kakak:*\n\n🧾 *Ringkasan Pesanan:*\n\n1. Bolen Coklat Keju\n   2x Rp 68.000 = Rp 136.000\n\n📦 Subtotal: Rp 136.000\n\n📝 *Catatan Khusus:* Diambil di Percetakan Negara\n\n🚚 Ongkir dihitung setelah konfirmasi alamat\n📦 _Pesanan bersifat PO, dikirim *besok* setelah pembayaran dikonfirmasi._\n\n💳 *Pembayaran via BCA:*\n👤 Cici Yohani\n💳 7420414000\n\n📍 Silakan ketik *alamat lengkap pengiriman* Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir.\n\n*Ketik:* _Batal_ / _Tambah [Nama Kue]_.\nMau *ubah jumlah*? Ketik: \"Nastar jadi 3\""
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Lokasi/Shareloc]"
+        },
+        {
+          "role": "user",
+          "content": "Sy selalu ambil sendiri mba"
+        },
+        {
+          "role": "user",
+          "content": "Tetangga ini"
+        },
+        {
+          "role": "user",
+          "content": "Saya selalu ambil sendiri mba"
+        },
+        {
+          "role": "user",
+          "content": "Idox 085393901608"
+        },
+        {
+          "role": "bot",
+          "content": "Baik Ibu/Bapak, nomor HP 085393901608 sudah kami catat untuk data pesanan ya. Karena Ibu/Bapak memilih ambil sendiri, silakan datang ke toko kami di Gg. L No.16c, Johar Baru setelah pesanan diproses di hari Rabu besok. Terima kasih banyak ya, Kak.\n\n✅ *Pesanan Kakak Diperbarui:*\n\n🧾 *Ringkasan Pesanan:*\n\n1. Bolen Coklat Keju\n   2x Rp 68.000 = Rp 136.000\n\n📦 Subtotal: Rp 136.000\n🚚 Ongkir: Rp 8.000\n━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: Rp 144.000*\n\n📝 *Catatan Khusus:* Pelanggan melakukan pickup mandiri.\n\n📍 Ongkir tetap menggunakan lokasi sebelumnya.\n💰 *TOTAL BARU: Rp 144.000*\n\nApakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*."
+        }
+      ],
+      "chatMode": "guided",
+      "totalPrice": 144000,
+      "customerLat": -6.19080856,
+      "customerLng": 106.86745271,
+      "deliveryFee": 8000,
+      "quotationId": "3503683224289685814",
+      "customerName": "sebut saja namanya halilintar",
+      "customerPhone": null,
+      "customerAddress": "Kantor RW 07 Rawasari",
+      "ambiguousPending": [
+        {
+          "qty": 2,
+          "matches": [
+            "Bolen Full Coklat",
+            "Bolen Full Keju",
+            "Bolen Coklat Keju"
+          ],
+          "original": "Bolen"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T06:42:30.621+00:00"
+  },
+  {
+    "wa_number": "4269231054897@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Kak, pesanan saya hr ini sdh  jalan untuk dikirim ?"
+        },
+        {
+          "role": "user",
+          "content": "Janjinya hr ini katanya mau dikirim  ?"
+        },
+        {
+          "role": "user",
+          "content": "Saya pesan dan bayar kemarin, janjinya hr ini mau dikirim"
+        },
+        {
+          "role": "user",
+          "content": "Jd besok hr selasa sdh dikirim yah Iya kakak🤗"
+        },
+        {
+          "role": "user",
+          "content": "Ini jawabannya kemaren kakak"
+        },
+        {
+          "role": "user",
+          "content": "Sekarang jd gimana pengirimannya ?"
+        },
+        {
+          "role": "user",
+          "content": "Halo kaka, gimana pengiriman pesanan saya ?"
+        },
+        {
+          "role": "user",
+          "content": "Oke kak"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:11:49.215+00:00"
+  },
+  {
+    "wa_number": "104449443893277@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Kk untuk alamatnya dikantor SUDIN DAMKAR \nKh Zainul Arifin no 71 Perojo Gambir Jak Pus"
+        },
+        {
+          "role": "user",
+          "content": "Kk untuk alamatnya dikantor SUDIN DAMKAR \nKh Zainul Arifin no 71 Petojo Gambir Jak Pus"
+        },
+        {
+          "role": "user",
+          "content": "Sudah pesan kk ...yg utk tgl 2 juni 2026 dan sudah transfer\nCoba cek kembali daftar pemesanan"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Ade Nuhasanah"
+    },
+    "updated_at": "2026-05-26T09:28:08.785+00:00"
+  },
+  {
+    "wa_number": "80909197918297@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Sore kakakkk"
+        },
+        {
+          "role": "user",
+          "content": "Kak aku order kemarin sore, kapan dikirim yaa"
+        },
+        {
+          "role": "user",
+          "content": "Roti sisir abon dan keju"
+        },
+        {
+          "role": "user",
+          "content": "Jaksel kak"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Leli"
+    },
+    "updated_at": "2026-05-26T09:34:26.087+00:00"
+  },
+  {
+    "wa_number": "9689597276184@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Ok terima kasih 🙏"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T09:46:20.292+00:00"
+  },
+  {
+    "wa_number": "208095980585165@lid",
+    "state": "REJECTED",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Selamat Siang ka mau ikut PO Bolen coklat keju sama roti sisir?\nKe Indramayu Jawa barat brpa hari ka?"
+        },
+        {
+          "role": "user",
+          "content": "Indramayu Jawa barat"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Astri"
+    },
+    "updated_at": "2026-05-26T03:44:24.505+00:00"
+  },
+  {
+    "wa_number": "211080496328797@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "iya kak di refund saja kak"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "WNR"
+    },
+    "updated_at": "2026-05-26T08:13:57.003+00:00"
+  },
+  {
+    "wa_number": "103710709571597@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Jam berapa biar disesuaikan dg org di rmh k kita mo keluar ga bisa2 k nunggu barangnya dtg"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf sekali atas ketidaknyamanannya ya, Ibu/Bapak. Mohon dimaklumi bahwa kami tidak dapat menjanjikan jam pengiriman karena harus mengikuti antrean driver. Untuk memastikan jadwal, kami sarankan Ibu/Bapak tetap di rumah karena pesanan dikirim sesuai urutan driver yang tersedia ya."
+        },
+        {
+          "role": "user",
+          "content": "Jangan sampai besok di kirim ya kk"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T09:50:19.66+00:00"
+  },
+  {
+    "wa_number": "68397857546258@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Belum dikirim ya pesanan saya. Sy mau bawa keluar kota sore ini.."
+        },
+        {
+          "role": "user",
+          "content": "Halo. ."
+        },
+        {
+          "role": "user",
+          "content": "Sy tunggu dari tadi katanya mau dikirim"
+        },
+        {
+          "role": "user",
+          "content": "Kl ngga bisa kirim hr ini, transfer kembali aja uang saya 130 rb"
+        },
+        {
+          "role": "user",
+          "content": "BCA 3196000643\nDumasari Hutagalung"
+        },
+        {
+          "role": "user",
+          "content": "Jam berapa ....sy mau keluar kota jam 6 sore ini"
+        },
+        {
+          "role": "user",
+          "content": "Sy lokasi nya deket loh padahal ..., kalian di cpk putih johar baru antar kerumah sy di rawamangun cuma +/_ 5 km"
+        },
+        {
+          "role": "user",
+          "content": "Aduh kalian ya... dagang di tiktok kirain sdh organise pengirimannya."
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T09:58:24.815+00:00"
+  },
+  {
+    "wa_number": "117407662231618@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Selamat sore, kak pesanan sudah di kirim blm ?"
+        },
+        {
+          "role": "user",
+          "content": "Kami sudah transfer ya kak kemarin"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Gimana kak sudah di kirim kah ?"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:52:23.183+00:00"
+  },
+  {
+    "wa_number": "221444369866759@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Hallo kak nanti kl udah proses kirim aku mau info ya, makasih"
+        },
+        {
+          "role": "user",
+          "content": "Pesanan an. Estie"
+        },
+        {
+          "role": "user",
+          "content": "Pesanan an. Estie nanti kl udah proses kirim aku mau info ya, makasih"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:53:59.121+00:00"
+  },
+  {
+    "wa_number": "81140572549220@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Kak tanya donk order saya di kirim kapan ya?"
+        },
+        {
+          "role": "user",
+          "content": "Ini uda bayar kemarin"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Bukti transfer"
+        },
+        {
+          "role": "user",
+          "content": "Maaf ini jadinya gimana ya?"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T07:56:59.533+00:00"
+  },
+  {
+    "wa_number": "72928695722025@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Ka mau tanya, dikirimnya hari ini kan ya?"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf Bapak/Ibu, karena hari ini Selasa, 26 Mei 2026, sistem kami adalah Pre-Order H+1, sehingga pesanan akan dikirimkan besok hari Rabu. Khusus untuk produk Nona Manis, pengiriman dilakukan H+2 atau hari Kamis ya Bapak/Ibu."
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:28:09.165+00:00"
+  },
+  {
+    "wa_number": "254463944216753@lid",
+    "state": "REGION_SELECT",
+    "data": {
+      "chatMode": "guided",
+      "customerName": "Rita"
+    },
+    "updated_at": "2026-05-26T08:39:14.741+00:00"
+  },
+  {
+    "wa_number": "1915588980767@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Punyaku udah dikirim blm kak an.Andreas JGC cakung"
+        },
+        {
+          "role": "user",
+          "content": "Kan udah aku tf kmrin"
+        },
+        {
+          "role": "user",
+          "content": "Bolen cklt keju dg sisir full cklt katanya selasa ini"
+        },
+        {
+          "role": "user",
+          "content": "Ini kan dah sepakat"
+        },
+        {
+          "role": "user",
+          "content": "Gimana kak"
+        },
+        {
+          "role": "user",
+          "content": "Aku tggu2 lho dr tadi"
+        },
+        {
+          "role": "user",
+          "content": "Buat HBD anak"
+        },
+        {
+          "role": "user",
+          "content": "Lupa ya kak"
+        },
+        {
+          "role": "user",
+          "content": "Ok...aku tggu ya"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:47:01.172+00:00"
+  },
+  {
+    "wa_number": "141979103006957@lid",
+    "state": "REGION_SELECT",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Astagfirulloh"
+        },
+        {
+          "role": "user",
+          "content": "Saya sdh selesai pesanan kak"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "👩‍👧Mia&Nadine❤️❤️😘😘😘"
+    },
+    "updated_at": "2026-05-26T08:39:23.88+00:00"
+  },
+  {
+    "wa_number": "164458659864740@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "ini kan sudah saya bayar Mba"
+        },
+        {
+          "role": "user",
+          "content": "ok"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T08:39:33.715+00:00"
+  },
+  {
+    "wa_number": "216994649514186@lid",
+    "state": "CONFIRM",
+    "data": {
+      "items": [
+        {
+          "qty": 1,
+          "name": "Roti Sisir Full Keju",
+          "price": 58000
+        }
+      ],
+      "notes": "",
+      "history": [
+        {
+          "role": "user",
+          "content": "Ka aku mau roti sisir yg keju 1"
+        },
+        {
+          "role": "user",
+          "content": "Jakarta barat puri kembangan"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Lokasi/Shareloc]"
+        },
+        {
+          "role": "user",
+          "content": "Hah mahal bgt ya ongkir nya kaget"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf ya Kak atas ketidaknyamanannya, karena tarif ongkir kami disesuaikan dengan jarak aktual Lalamove. Sebagai solusi agar ongkirnya jauh lebih murah, Kakak bisa melakukan pemesanan melalui Shopee kami di https://shopee.co.id/yoyobolen ya Kak. 😊\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._"
+        },
+        {
+          "role": "user",
+          "content": "Emng kk dr mn ka"
+        },
+        {
+          "role": "bot",
+          "content": "Dapur produksi kami berlokasi di Johar Baru, Jakarta Pusat ya, Kak. Tepatnya di Gg. L No.16c, RT.4/RW.5, Johar Baru. 😊\n\n✅ _Mohon balas dengan *Konfirmasi* untuk lanjut._"
+        }
+      ],
+      "chatMode": "guided",
+      "totalPrice": 99000,
+      "customerLat": -6.1831923,
+      "customerLng": 106.7289086,
+      "deliveryFee": 41000,
+      "quotationId": "3503683224256131125",
+      "customerName": "Tasha",
+      "customerAddress": "-6.1831923,106.7289086",
+      "ambiguousPending": []
+    },
+    "updated_at": "2026-05-26T04:54:14.083+00:00"
+  },
+  {
+    "wa_number": "48795828093010@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "items": [
+        {
+          "qty": 1,
+          "name": "Roti Sisir Mix",
+          "price": 58000
+        },
+        {
+          "qty": 1,
+          "name": "Bolen Coklat Keju",
+          "price": 68000
+        }
+      ],
+      "notes": "Roti sisir di-mix",
+      "history": [
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Pulogebang jalan mutiara 5 RT 20 -Rw 06 nomor 47 F"
+        },
+        {
+          "role": "user",
+          "content": "Roti sisir sama bolen Roti sisir ya di mix"
+        },
+        {
+          "role": "bot",
+          "content": "Baik Bapak/Ibu, pesanan Roti Sisir dan Bolen sudah saya catat ya. Mengingat hari ini Selasa, pesanan Roti Sisir akan dikirim besok Rabu, dan khusus Bolen akan kami proses kirim besok karena stok hari ini sudah habis. Mohon tunggu proses pengiriman esok hari ya, terima kasih.\n\n✅ *Pesanan Kakak Diperbarui:*\n\n🧾 *Ringkasan Pesanan:*\n\n1. Roti Sisir Mix\n   1x Rp 58.000 = Rp 58.000\n2. Bolen Coklat Keju\n   1x Rp 68.000 = Rp 68.000\n\n📦 Subtotal: Rp 126.000\n🚚 Ongkir: Rp 31.000\n━━━━━━━━━━━━━━━━━━\n💰 *TOTAL: Rp 157.000*\n\n📝 *Catatan Khusus:* Roti sisir di-mix\n\n📍 *Alamat Terdeteksi Otomatis:*\n_Jl. Mutiara V, RW.6, Pulo Gebang, Kec. Cakung, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13950, Indonesia_\n\n💰 *TOTAL: Rp 157.000*\n\nApakah sudah benar?\nBalas *Konfirmasi* atau *Kembali*."
+        },
+        {
+          "role": "user",
+          "content": "Ya suda benar"
+        },
+        {
+          "role": "user",
+          "content": "Liat aja yang kemarin mba"
+        },
+        {
+          "role": "user",
+          "content": "Mba ini udah benar"
+        },
+        {
+          "role": "user",
+          "content": "Jangan tanya kirim aja mba"
+        },
+        {
+          "role": "user",
+          "content": "Di masuk in Nomor hp"
+        },
+        {
+          "role": "user",
+          "content": "Nomor saya apa nomor siapa mba"
+        },
+        {
+          "role": "user",
+          "content": "Iya udah kirim aja pesanan"
+        },
+        {
+          "role": "user",
+          "content": "Mba"
+        }
+      ],
+      "chatMode": "guided",
+      "totalPrice": 157000,
+      "customerLat": -6.2088274,
+      "customerLng": 106.9514486,
+      "deliveryFee": 31000,
+      "quotationId": "3503771389608345886",
+      "customerName": "aqilah Aisyah",
+      "customerPhone": null,
+      "customerAddress": "Jl. Mutiara V, RW.6, Pulo Gebang, Kec. Cakung, Kota Jakarta Timur, Daerah Khusus Ibukota Jakarta 13950, Indonesia"
+    },
+    "updated_at": "2026-05-26T09:18:32.089+00:00"
+  },
+  {
+    "wa_number": "227745539870884@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "oke"
+        },
+        {
+          "role": "user",
+          "content": "kak aku mau cek pesanan aku"
+        },
+        {
+          "role": "user",
+          "content": "itu di konfirmasi kak kira kira kapan di prosesnya"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T10:04:45.421+00:00"
+  },
+  {
+    "wa_number": "209754072846482@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Ok"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T10:02:37.468+00:00"
+  },
+  {
+    "wa_number": "131714399613027@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "hey min bagaimana ya apakah sudah di cek kembali untuk pesanan sy"
+        },
+        {
+          "role": "user",
+          "content": "tolong di info min , sebab kalo malam dirumah tidak ada org ."
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T05:43:07.272+00:00"
+  },
+  {
+    "wa_number": "243989223633017@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Pak saya sudah pesan di hari Jumat,sampai sekarang blom datang terhitung 5 hari,bagaimana pak?"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T02:48:44.835+00:00"
+  },
+  {
+    "wa_number": "177206240276710@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Halo k"
+        },
+        {
+          "role": "user",
+          "content": "Kmrn saya ad order di shopi dkirim kpn y"
+        },
+        {
+          "role": "user",
+          "content": "Tangsel"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Isna"
+    },
+    "updated_at": "2026-05-26T05:46:27.475+00:00"
+  },
+  {
+    "wa_number": "245676474642514@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Ka Kak Kak Kaka Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Lokasi/Shareloc]"
+        },
+        {
+          "role": "user",
+          "content": "Itu kak"
+        },
+        {
+          "role": "user",
+          "content": "Ya Allah"
+        },
+        {
+          "role": "user",
+          "content": "Ya robb"
+        },
+        {
+          "role": "user",
+          "content": "Aku udah order dari kemaren Lo kak"
+        },
+        {
+          "role": "user",
+          "content": "Bener gak sih kak"
+        },
+        {
+          "role": "user",
+          "content": "Amanah gak sih kak"
+        },
+        {
+          "role": "user",
+          "content": "Padahal aku udah TF loh kak"
+        },
+        {
+          "role": "user",
+          "content": "Kok jawabnya begitu Mulu sih kak"
+        },
+        {
+          "role": "user",
+          "content": "Gimana kak"
+        },
+        {
+          "role": "user",
+          "content": "Aku udah TF loh kak"
+        },
+        {
+          "role": "user",
+          "content": "Katanya di kirim hari ini Kak Kak Kaka Kak Kak Kak Kak Kak Kak"
+        },
+        {
+          "role": "user",
+          "content": "Kak Kak Kak"
+        },
+        {
+          "role": "user",
+          "content": "Ayo kak Gimana Uang Saya"
+        },
+        {
+          "role": "user",
+          "content": "Yg udah TF kak"
+        },
+        {
+          "role": "user",
+          "content": "Amanah gak sih kak"
+        },
+        {
+          "role": "user",
+          "content": "Ya allah"
+        },
+        {
+          "role": "user",
+          "content": "Saya cuman menanyakan pesanan saya Lo kak"
+        },
+        {
+          "role": "user",
+          "content": "Kak jawabannya begitu mulu"
+        },
+        {
+          "role": "user",
+          "content": "Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak Kak"
+        },
+        {
+          "role": "user",
+          "content": "Kak"
+        },
+        {
+          "role": "user",
+          "content": "Amanah gak sih kak"
+        },
+        {
+          "role": "user",
+          "content": "Kak jualan loh"
+        },
+        {
+          "role": "user",
+          "content": "Kok gitu ya"
+        },
+        {
+          "role": "user",
+          "content": "Gimana kak"
+        },
+        {
+          "role": "user",
+          "content": "Aku kan nanya kak"
+        },
+        {
+          "role": "user",
+          "content": "Mana saya udah TF kak"
+        },
+        {
+          "role": "user",
+          "content": "Oke di tunggu"
+        },
+        {
+          "role": "user",
+          "content": "Iya kak"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "kembar"
+    },
+    "updated_at": "2026-05-26T09:31:41.309+00:00"
+  },
+  {
+    "wa_number": "232508457267279@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Sore"
+        },
+        {
+          "role": "user",
+          "content": "Sis paket bolen saya gmana ya"
+        },
+        {
+          "role": "user",
+          "content": "Ini"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Sis gmana kelanjutan nya"
+        },
+        {
+          "role": "user",
+          "content": "Saya udah tf loh"
+        },
+        {
+          "role": "user",
+          "content": "Gmana Sis"
+        },
+        {
+          "role": "user",
+          "content": "Kira2 sampe jam brapa ya"
+        },
+        {
+          "role": "user",
+          "content": "Soalnya saya pulang kerja jam 20"
+        },
+        {
+          "role": "user",
+          "content": "Bisa gak ganti alamat"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Lokasi/Shareloc]"
+        },
+        {
+          "role": "user",
+          "content": "Ini udah saya sharelok"
+        },
+        {
+          "role": "user",
+          "content": "Gg. Haji niit kampung utan ciputat timur belakang pom bensin"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "dhiah87.dr@gmail.com"
+    },
+    "updated_at": "2026-05-26T10:04:48.946+00:00"
+  },
+  {
+    "wa_number": "208409009897709@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Halo kak ini brtti pesanan saya di kirim bsk yah?"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf Bapak/Ibu, karena saat ini saya tidak melihat adanya data pesanan aktif, boleh dibantu informasikan nama pemesan agar saya teruskan ke admin kami untuk pengecekan lebih lanjut ya?"
+        },
+        {
+          "role": "user",
+          "content": "Diana 082124116381\nJl camar 11 gg5R no25B rt 008 rw008 kelurahan semper barat kecamatan cilincing"
+        },
+        {
+          "role": "user",
+          "content": "Oke"
+        },
+        {
+          "role": "user",
+          "content": "Dan saya juga sudah tf yah td pagi"
+        },
+        {
+          "role": "user",
+          "content": "Ini buktinya"
+        },
+        {
+          "role": "user",
+          "content": "Halo gmn yah kak?"
+        },
+        {
+          "role": "user",
+          "content": "td pas saya tanya bsk bisa katanya di kirim bsk kak"
+        },
+        {
+          "role": "user",
+          "content": "Mangkannya saya lgsg tf td pagi"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T09:35:16.43+00:00"
+  },
+  {
+    "wa_number": "35897370276086@lid",
+    "state": "LOCATION",
+    "data": {
+      "items": [
+        {
+          "qty": 1,
+          "name": "Roti Sisir Full Keju",
+          "price": 58000
+        }
+      ],
+      "notes": "",
+      "history": [
+        {
+          "role": "user",
+          "content": "Halo \nBisa pesen \nRoti sisir full keju"
+        },
+        {
+          "role": "user",
+          "content": "Untuk hari ini"
+        },
+        {
+          "role": "user",
+          "content": "Jakarta"
+        },
+        {
+          "role": "user",
+          "content": "https://share.google/42uT9rZgcV2vVO3OL"
+        },
+        {
+          "role": "user",
+          "content": "https://share.google/9e0H0R2NsA1NFbC2T"
+        },
+        {
+          "role": "user",
+          "content": "Untuk hari ini ya"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf ya Kak, untuk produk Roti Sisir sistemnya Pre-Order H+1 (dikirim besok). Karena hari ini Selasa, pesanan Kakak akan dikirim hari Rabu besok ya Kak. Apakah tidak apa-apa?\n\n📍 _Silakan ketik alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp untuk hitung ongkir._"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Leo Girls",
+      "ambiguousPending": []
+    },
+    "updated_at": "2026-05-26T00:11:29.033+00:00"
+  },
+  {
+    "wa_number": "161452132450498@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "kaaa"
+        },
+        {
+          "role": "user",
+          "content": "ini 10ribu bayar apa yaa?"
+        },
+        {
+          "role": "user",
+          "content": "tolong segera minnn"
+        },
+        {
+          "role": "user",
+          "content": "saya diawal sudah sekalian bayar ongkir kaa"
+        },
+        {
+          "role": "user",
+          "content": "nihh"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Tri Nadia"
+    },
+    "updated_at": "2026-05-26T03:06:36.482+00:00"
+  },
+  {
+    "wa_number": "43744292241474@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "ya ka sama' \nsekali lg maaf ya ka 🙏🏻"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T00:20:43.544+00:00"
+  },
+  {
+    "wa_number": "117939952951404@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Pesenann saya kmren lewat shopee kok blom dikiim2 ya"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T06:32:57.753+00:00"
+  },
+  {
+    "wa_number": "90340946092064@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Pagi kk,pesenan saya neri suryani,sore jm berapa bisa di ambil,,nti ada yg ambil,"
+        },
+        {
+          "role": "user",
+          "content": "[Mengirim Gambar]"
+        },
+        {
+          "role": "user",
+          "content": "Tolong infokan,jm berap bisa di ambil"
+        },
+        {
+          "role": "user",
+          "content": "Sore kk,🙏"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T01:12:22.299+00:00"
+  },
+  {
+    "wa_number": "150216699285752@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Mba jam 10 bs ga sy ambil kue y"
+        },
+        {
+          "role": "bot",
+          "content": "Bisa sekali Kak, pengambilan jam 10.00 WIB diperbolehkan asalkan Kakak sudah memesan terlebih dahulu via WA ya. Karena hari ini Selasa, pesanan Kakak selain Nona Manis siap diambil hari Rabu besok, sedangkan khusus Nona Manis siap hari Kamis lusa Kak. 😊"
+        },
+        {
+          "role": "user",
+          "content": "Siap mba"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T01:49:21.498+00:00"
+  },
+  {
+    "wa_number": "17785560248350@lid",
+    "state": "REGION_SELECT",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Y n"
+        },
+        {
+          "role": "bot",
+          "content": "Halo, selamat datang di Yoyo Bakery! Ada yang bisa kami bantu hari ini, Ibu/Bapak/Kak? 😊"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Icha Hasan"
+    },
+    "updated_at": "2026-05-26T01:52:12.442+00:00"
+  },
+  {
+    "wa_number": "252789041188879@lid",
+    "state": "IDLE",
+    "data": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Pagi kk\nHari ini ready apa aja d toko"
+        },
+        {
+          "role": "bot",
+          "content": "Selamat pagi, Kak! Khusus hari ini (Selasa), hanya menu Bolen saja yang ready dan bisa langsung dikirim ya. Karena hari ini Selasa, pesanan produk lainnya akan dikirim hari Rabu besok, sedangkan khusus Nona Manis akan dikirim hari Kamis lusa. Kakak tertarik pesan menu yang mana? 😊"
+        },
+        {
+          "role": "user",
+          "content": "Ow utukl roti sisir ada hari tertentu ya"
+        },
+        {
+          "role": "bot",
+          "content": "Roti Sisir bisa dipesan setiap hari kok, Kak. Namun, sistemnya adalah Pre-Order H+1 (dikirim besok). Jadi, jika Kakak memesan hari ini (Selasa), pesanan Roti Sisir Kakak akan dikirim hari Rabu besok ya. 😊"
+        },
+        {
+          "role": "user",
+          "content": "Chocoo chesee roll ready hari ini g?"
+        },
+        {
+          "role": "bot",
+          "content": "Mohon maaf, untuk Choco Cheese Roll tidak ready hari ini ya, Kak. Produk roll cake sistemnya Pre-Order H+1, jadi karena hari ini Selasa, pesanan Kakak akan dikirim hari Rabu besok. Khusus hari ini yang ready dan bisa langsung dikirim hanya menu Bolen saja, Kak. 😊"
+        }
+      ]
+    },
+    "updated_at": "2026-05-26T01:58:10.863+00:00"
+  },
+  {
+    "wa_number": "170523170496601@lid",
+    "state": "ADMIN_TAKEOVER",
+    "data": {
+      "items": [],
+      "notes": "",
+      "history": [
+        {
+          "role": "user",
+          "content": "Kak ada slot pengiriman hari ini"
+        },
+        {
+          "role": "bot",
+          "content": "Halo Kak! Karena hari ini Selasa, 26 Mei 2026, seluruh produk kami (kecuali Nona Manis) menggunakan sistem Pre-Order untuk pengiriman besok hari Rabu ya Kak. Khusus Nona Manis, pengiriman dilakukan lusa hari Kamis. Apakah ada yang ingin Kakak pesan?"
+        },
+        {
+          "role": "user",
+          "content": "Aku ada order by oren ya"
+        },
+        {
+          "role": "user",
+          "content": "Jakbar"
+        },
+        {
+          "role": "user",
+          "content": "Kebon jeruk"
+        },
+        {
+          "role": "user",
+          "content": "260526DV0H0N5C"
+        },
+        {
+          "role": "user",
+          "content": "Sudah co di oyen"
+        },
+        {
+          "role": "user",
+          "content": "Masih kebagian kiriman hari ini ga"
+        }
+      ],
+      "chatMode": "guided",
+      "customerName": "Imas ( Dapur Hobah💃🎤🎶)",
+      "ambiguousPending": []
+    },
+    "updated_at": "2026-05-26T06:55:44.402+00:00"
+  }
+]

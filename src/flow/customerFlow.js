@@ -106,7 +106,10 @@ async function handleCustomerMessage(from, name, message) {
     const isTimeout = (Date.now() - lastUpdate) > 60 * 60 * 1000; // 1 Jam
 
     if (isTimeout || ['batal', 'halo', 'mulai', 'reset'].includes(t)) {
-      await deleteSession(from);
+      await upsertSession(from, ST.IDLE, {
+        customerPhone: session?.data?.customerPhone || '',
+        customerName: session?.data?.customerName || ''
+      });
       return sender.sendText(from, 'Halo Kak! Sesi obrolan sebelumnya sudah ditutup. Ada yang bisa kami bantu hari ini? 😊');
     }
     return; // Abaikan semua chat
@@ -126,8 +129,9 @@ async function handleCustomerMessage(from, name, message) {
     aiData = { intent: 'REGION_MATCH' };
   } else if (text.trim().length > 0) {
     let activeOrderContext = '';
-    if (state === ST.IDLE) {
-      const activeOrders = await db.getActiveOrdersByPhone(from);
+    if (state === ST.IDLE || state === ST.ADMIN_TAKEOVER) {
+      const phoneToSearch = session?.data?.customerPhone || from;
+      const activeOrders = await db.getActiveOrdersByPhone(phoneToSearch);
       if (activeOrders && activeOrders.length > 0) {
         activeOrderContext = `\n\nINFO PENTING UNTUK AI: Pelanggan ini sedang memiliki PESANAN AKTIF. Berikut detail pesanannya:\n`;
         activeOrders.forEach(ord => {
@@ -248,8 +252,11 @@ async function handleCustomerMessage(from, name, message) {
   if (aiData) {
     // --- CANCEL ---
     if (aiData.intent === 'CANCEL') {
-      await deleteSession(from);
-      let cancelMsg = aiData.answer || '❌ Pesanan telah dibatalkan. Jika Kakak berubah pikiran, cukup ketik *Halo* untuk memulai pesanan baru ya Kak. 😊';
+      await upsertSession(from, ST.IDLE, {
+        customerPhone: session?.data?.customerPhone || '',
+        customerName: session?.data?.customerName || ''
+      });
+      let cancelMsg = aiData.answer || '✅ Pesanan telah dibatalkan. Jika Kakak berubah pikiran, cukup ketik *Halo* untuk memulai pesanan baru ya Kak. 😊';
       return sender.sendText(from, cancelMsg);
     }
 
@@ -1127,7 +1134,10 @@ async function handlePaymentProof(from, message) {
   if (paymentProofUrl) updates.payment_proof_url = paymentProofUrl;
   
   await db.updateOrder(orderId, updates);
-  await deleteSession(from);
+  await upsertSession(from, ST.IDLE, {
+    customerPhone: session?.data?.customerPhone || '',
+    customerName: session?.data?.customerName || ''
+  });
 
   return sender.sendText(from, 
     `✅ *Bukti transfer diterima!*\n\n` +
