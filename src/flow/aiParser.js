@@ -105,6 +105,16 @@ async function callGeminiAI(text, state = null, ambiguousContext = null, activeO
   const nonaManisShippingStr = nonaManisDate.toLocaleDateString('id-ID', dateOptions);
   const todayStr = new Date().toLocaleDateString('id-ID', dateOptions);
 
+  let holidayContext = '';
+  if (holidays && holidays.length > 0) {
+    const formattedHolidays = holidays.map(h => {
+      // Create date object correctly recognizing YYYY-MM-DD
+      const d = new Date(h + 'T00:00:00+07:00'); 
+      return d.toLocaleDateString('id-ID', dateOptions);
+    });
+    holidayContext = `\n- JADWAL LIBUR TOKO (TUTUP & TIDAK ADA PENGIRIMAN): ${formattedHolidays.join(', ')}. Jika pelanggan bertanya tentang pengiriman pada tanggal ini atau komplain mengapa pengirimannya bukan besok, jelaskan dengan ramah bahwa toko kami memang sedang LIBUR pada tanggal tersebut.`;
+  }
+
   // Build state context for AI
   let stateContext = '';
   if (state === 'REJECTED') {
@@ -142,7 +152,7 @@ ${stateContext}${contextAddon}${historyAddon}
 ${bolenContext}
 
 ATURAN WAKTU & PENGIRIMAN (SANGAT PENTING):
-- HARI INI ADALAH: ${todayStr} (Waktu Indonesia Barat).
+- HARI INI ADALAH: ${todayStr} (Waktu Indonesia Barat).${holidayContext}
 - SEMUA PRODUK (selain Nona Manis) adalah sistem Pre-Order. Pengiriman terdekat berikutnya adalah: ${nextShippingStr}. Anda WAJIB menyebutkan nama hari pengirimannya secara eksplisit (contoh: "karena pesanan dibuat hari ini, pesanan Kakak akan dikirim hari ${nextShippingStr} ya").
 - KHUSUS produk "Nona Manis" adalah sistem Pre-Order H+2. Pengiriman terdekat untuk Nona Manis adalah: ${nonaManisShippingStr}. Anda WAJIB menyebutkannya secara eksplisit (contoh: "khusus untuk Nona Manis akan dikirim hari ${nonaManisShippingStr} ya Kak").
 - Selalu beritahu pelanggan aturan pengiriman ini dengan sopan saat mereka selesai memesan atau saat mereka bertanya kapan dikirim.
