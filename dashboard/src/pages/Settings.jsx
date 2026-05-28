@@ -199,9 +199,17 @@ export default function Settings() {
     
     setStoppingBot(true);
     try {
-      // Panggil Vercel Serverless Function (Proxy)
-      // Ini akan mencegah error "Mixed Content" (HTTPS -> HTTP) di browser
-      const res = await fetch('/api/bot-stop', {
+      // Panggil Vercel Serverless Function (Proxy) jika di production
+      // Jika di local (Vite dev server), panggil langsung backend Express
+      const isDev = import.meta.env.DEV;
+      let endpoint = '/api/bot-stop';
+      
+      if (isDev) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        endpoint = `${apiUrl}/api/bot/stop`;
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
       });
       const data = await res.json();
@@ -256,9 +264,9 @@ export default function Settings() {
           </button>
         </div>
 
-        <div className="flex items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl p-4 mt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl p-4 mt-4 gap-4">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bolenSoldOut ? 'bg-rose-100' : 'bg-emerald-100'}`}>
+            <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${bolenSoldOut ? 'bg-rose-100' : 'bg-emerald-100'}`}>
               <AlertCircle size={20} className={bolenSoldOut ? 'text-rose-600' : 'text-emerald-600'} />
             </div>
             <div>
@@ -268,7 +276,7 @@ export default function Settings() {
           </div>
           <button
             onClick={toggleBolenSoldOut}
-            className={`w-14 h-8 rounded-full transition-all duration-300 relative ${bolenSoldOut ? 'bg-rose-500' : 'bg-stone-200'}`}
+            className={`w-14 h-8 shrink-0 rounded-full transition-all duration-300 relative ${bolenSoldOut ? 'bg-rose-500' : 'bg-stone-200'}`}
           >
             <div className={`w-6 h-6 bg-white rounded-full shadow absolute top-1 transition-all duration-300 ${bolenSoldOut ? 'left-7' : 'left-1'}`} />
           </button>

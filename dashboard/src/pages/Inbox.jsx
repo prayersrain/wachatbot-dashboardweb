@@ -129,7 +129,7 @@ export default function Inbox() {
   if (loading) return <div>Loading inbox...</div>;
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 pb-6">
+    <div className="h-[calc(100vh-8rem)] flex gap-6 pb-6 overflow-hidden max-w-full">
       {/* Sidebar: Session List */}
       <div className={`w-full md:w-1/3 bg-white border border-stone-100 rounded-[32px] shadow-sm flex-col overflow-hidden ${selectedSession ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-stone-100">
@@ -224,8 +224,8 @@ export default function Inbox() {
               ) : (
                 selectedSession.data.history.map((msg, i) => (
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-[70%] p-4 rounded-2xl ${msg.role === 'user' ? 'bg-white border border-stone-200 rounded-tl-none' : 'bg-primary text-white rounded-tr-none shadow-sm'}`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <div className={`max-w-[85%] sm:max-w-[70%] p-4 rounded-2xl break-words min-w-0 ${msg.role === 'user' ? 'bg-white border border-stone-200 rounded-tl-none' : 'bg-primary text-white rounded-tr-none shadow-sm'}`}>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed break-words" style={{ wordBreak: 'break-word' }}>{msg.content}</p>
                     </div>
                   </div>
                 ))
@@ -242,12 +242,12 @@ export default function Inbox() {
                     onChange={e => setMessage(e.target.value)}
                     placeholder="Ketik balasan Anda..." 
                     disabled={sending}
-                    className="flex-1 px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-sm"
+                    className="flex-1 min-w-0 w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-sm"
                   />
                   <button 
                     type="submit" 
                     disabled={sending || !message.trim()}
-                    className="px-6 bg-primary text-white rounded-2xl hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center justify-center"
+                    className="px-4 sm:px-6 shrink-0 bg-primary text-white rounded-2xl hover:bg-primary-hover disabled:opacity-50 transition-colors flex items-center justify-center"
                   >
                     <Send size={18} />
                   </button>

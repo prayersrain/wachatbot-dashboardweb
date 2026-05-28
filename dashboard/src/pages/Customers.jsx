@@ -145,15 +145,15 @@ export default function Customers() {
           </div>
 
           {/* Mobile Cards */}
-          <div className="md:hidden divide-y divide-stone-50">
+          <div className="md:hidden divide-y divide-stone-50 overflow-hidden max-w-full">
             {filtered.map((c) => (
-              <div key={c.id} className="p-5 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <span className="text-primary font-black text-lg">{(c.name || '?')[0].toUpperCase()}</span>
+              <div key={c.id} className="p-4 sm:p-5 flex items-center gap-3 sm:gap-4 overflow-hidden">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-primary font-black text-base sm:text-lg">{(c.name || '?')[0].toUpperCase()}</span>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="font-bold text-secondary text-sm truncate">{c.name || 'Tanpa Nama'}</p>
-                  <p className="text-xs text-stone-muted">{c.wa_number?.split('@')[0]}</p>
+                  <p className="text-xs text-stone-muted truncate">{c.wa_number?.split('@')[0]}</p>
                   <div className="flex gap-3 mt-1">
                     <span className="text-[10px] font-black text-stone-muted uppercase">{c.totalOrders} order</span>
                     <span className="text-[10px] font-black text-primary">Rp {c.totalSpent.toLocaleString('id-ID')}</span>
