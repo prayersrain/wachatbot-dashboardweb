@@ -22,19 +22,20 @@ import {
 import { SkeletonStat, SkeletonChart } from '../components/Skeleton';
 
 const StatCard = ({ title, value, icon: Icon, color, trend, trendLabel }) => (
-  <div className="bg-white border border-stone-100 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-md transition-all group">
-    <div className="space-y-1">
-      <p className="text-stone-muted text-xs font-bold uppercase tracking-widest">{title}</p>
-      <h2 className="text-2xl font-black text-secondary tracking-tight group-hover:text-primary transition-colors">{value}</h2>
+  <div className="relative group overflow-hidden bg-white/60 backdrop-blur-xl border border-white/40 p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 flex items-center justify-between">
+    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+    <div className="relative z-10 space-y-1">
+      <p className="text-stone-500 text-[11px] font-black uppercase tracking-widest">{title}</p>
+      <h2 className="text-3xl font-black text-secondary tracking-tight group-hover:scale-105 origin-left transition-transform duration-300" style={{ color: color }}>{value}</h2>
       {trend !== null && trend !== undefined && (
-        <div className={`flex items-center gap-1 text-[10px] font-black ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-          {trend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+        <div className={`flex items-center gap-1 text-[11px] font-bold mt-2 ${trend >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {trend >= 0 ? <ArrowUpRight size={14} strokeWidth={3} /> : <ArrowDownRight size={14} strokeWidth={3} />}
           <span>{Math.abs(trend)}% {trendLabel || 'vs kemarin'}</span>
         </div>
       )}
     </div>
-    <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-3" style={{ backgroundColor: `${color}15`, color: color }}>
-      <Icon size={24} strokeWidth={2.5} />
+    <div className="relative z-10 w-16 h-16 rounded-[20px] flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6 shadow-inner" style={{ backgroundColor: `${color}15`, color: color, border: `1px solid ${color}30` }}>
+      <Icon size={28} strokeWidth={2.5} />
     </div>
   </div>
 );

@@ -22,6 +22,22 @@ export default function Layout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-bakery-bg">
+      {/* Mobile Top Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-md border-b border-stone-200 z-[100] flex items-center justify-between px-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-1.5 rounded-lg shadow-sm border border-stone-100">
+            <img src="/logoyoyobolen.PNG" alt="Logo" className="w-8 h-8 object-contain" />
+          </div>
+          <h2 className="font-bold text-secondary text-base">Yoyo Bakery</h2>
+        </div>
+        <button 
+          onClick={handleLogout}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
+        >
+          <LogOut size={16} />
+        </button>
+      </header>
+
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-72 h-[calc(100vh-32px)] fixed left-4 top-4 bg-bakery-sidebar border border-stone-200 rounded-[32px] flex-col p-8 z-50 shadow-sm">
         <div className="flex items-center gap-3 pb-8 mb-4 border-b border-stone-100">
@@ -67,27 +83,29 @@ export default function Layout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-80 p-4 md:p-8 pb-32 lg:pb-8">
+      <main className="flex-1 pt-20 lg:pt-4 lg:ml-80 p-4 md:p-8 pb-28 lg:pb-8">
         <div className="max-w-6xl mx-auto animate-fade">
           {children}
         </div>
       </main>
 
       {/* Bottom Navigation - Mobile */}
-      <nav className="lg:hidden fixed bottom-6 left-4 right-4 h-20 bg-white/80 backdrop-blur-xl border border-stone-200 rounded-[28px] flex justify-around items-center px-1 z-1000 shadow-2xl">
+      <nav className="lg:hidden fixed bottom-4 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-stone-200/50 rounded-[24px] flex justify-around items-center px-2 z-[100] shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
         {NavItems.map((item) => (
           <NavLink 
             key={item.path} 
             to={item.path} 
             className={({ isActive }) => `
-              flex flex-col items-center gap-1 transition-all duration-300 px-2 py-2 rounded-2xl
-              ${isActive ? 'text-primary scale-105' : 'text-stone-muted'}
+              relative flex flex-col items-center justify-center w-12 h-12 transition-all duration-300 rounded-xl
+              ${isActive ? 'text-primary' : 'text-stone-400 hover:text-stone-600'}
             `}
           >
             {({ isActive }) => (
               <>
-                <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[8px] font-bold uppercase tracking-wider">{item.label}</span>
+                {isActive && (
+                  <span className="absolute -top-1 w-1 h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(217,119,6,0.6)]"></span>
+                )}
+                <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'drop-shadow-sm scale-110' : ''} />
               </>
             )}
           </NavLink>

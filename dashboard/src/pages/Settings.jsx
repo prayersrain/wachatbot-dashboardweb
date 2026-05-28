@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../contexts/ToastContext';
-import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X, AlertCircle, Calendar } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Info, Lock, Volume2, VolumeX, ExternalLink, Mail, LogOut, MessageCircleQuestion, Plus, Trash2, Edit2, Save, X, AlertCircle, Calendar, Power } from 'lucide-react';
 
 // Defined OUTSIDE the component to avoid re-creation on every render
 const SectionCard = ({ icon: Icon, title, children }) => (
@@ -25,6 +25,7 @@ export default function Settings() {
   });
   const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
   const [changingPassword, setChangingPassword] = useState(false);
+  const [stoppingBot, setStoppingBot] = useState(false);
 
   const [faqs, setFaqs] = useState([]);
   const [loadingFaqs, setLoadingFaqs] = useState(true);
@@ -190,6 +191,29 @@ export default function Settings() {
       toast.error('Gagal ubah password: ' + err.message);
     }
     setChangingPassword(false);
+  };
+  const handleStopBot = async () => {
+    if (!window.confirm('PERINGATAN!\n\nIni akan mematikan bot Yoyo Bakery. Setelah dimatikan, Anda harus masuk ke VPS secara manual (SSH) dan menjalankan "pm2 start yoyobot" untuk menghidupkannya kembali.\n\nApakah Anda yakin ingin mematikan bot?')) {
+      return;
+    }
+    
+    setStoppingBot(true);
+    try {
+      // Panggil Vercel Serverless Function (Proxy)
+      // Ini akan mencegah error "Mixed Content" (HTTPS -> HTTP) di browser
+      const res = await fetch('/api/bot-stop', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message || 'Bot berhasil dihentikan!');
+      } else {
+        toast.error('Gagal menghentikan bot.');
+      }
+    } catch (err) {
+      toast.error('Gagal menghubungi backend bot. Pastikan bot sedang berjalan.');
+    }
+    setStoppingBot(false);
   };
 
 
@@ -417,6 +441,29 @@ export default function Settings() {
               ))}
             </div>
           )}
+        </div>
+      </SectionCard>
+
+      {/* Server & Bot Control */}
+      <SectionCard icon={Power} title="Kontrol Server Bot">
+        <div className="bg-rose-50/50 border border-rose-100 rounded-[24px] p-5 md:p-6 text-center space-y-4 shadow-sm relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-rose-500/0 via-rose-500/5 to-rose-500/0 transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+          <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto shadow-inner border border-rose-200">
+            <Power size={28} className="text-rose-600 animate-pulse" />
+          </div>
+          <div>
+            <h4 className="font-black text-rose-900 text-lg mb-1">Matikan Bot PM2</h4>
+            <p className="text-sm text-rose-700/80 max-w-md mx-auto leading-relaxed font-medium">
+              Tombol ini akan mengeksekusi <code className="bg-rose-100 px-1.5 py-0.5 rounded text-rose-800 text-xs font-bold">pm2 stop yoyobot</code> di server VPS. Bot WhatsApp akan terputus.
+            </p>
+          </div>
+          <button
+            onClick={handleStopBot}
+            disabled={stoppingBot}
+            className="mt-4 relative inline-flex items-center justify-center px-8 py-3.5 font-bold text-white transition-all duration-200 bg-rose-600 border border-transparent rounded-2xl hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_14px_0_rgb(225,29,72,0.39)] hover:shadow-[0_6px_20px_rgba(225,29,72,0.23)] hover:-translate-y-0.5"
+          >
+            {stoppingBot ? 'Memproses...' : 'Hentikan Bot Sekarang'}
+          </button>
         </div>
       </SectionCard>
 

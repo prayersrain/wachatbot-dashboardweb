@@ -57,4 +57,17 @@ app.post('/api/send-message', async (req, res) => {
   }
 });
 
+app.post('/api/bot/stop', (req, res) => {
+  res.json({ success: true, message: 'Bot sedang dihentikan...' });
+  setTimeout(() => {
+    require('child_process').exec('pm2 stop yoyobot', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error stopping bot via PM2: ${error}`);
+      } else {
+        console.log('Bot stopped via API request from dashboard.');
+      }
+    });
+  }, 1000); // Tunggu 1 detik agar response terkirim dulu
+});
+
 module.exports = app;
