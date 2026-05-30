@@ -4,6 +4,12 @@ import { MessageCircle, Send, User, Clock, AlertCircle, CheckCircle2, PlayCircle
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 
+const getSessionPhone = (session) => {
+  if (!session) return '-';
+  if (session.data?.customerPhone) return session.data.customerPhone;
+  return session.wa_number?.split('@')[0] || '-';
+};
+
 export default function Inbox() {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -161,7 +167,7 @@ export default function Inbox() {
             >
               <div className="flex justify-between items-start mb-2">
                 <p className="font-bold text-sm text-secondary truncate">
-                  {s.data?.customerName || s.wa_number.split('@')[0]}
+                  {s.data?.customerName || getSessionPhone(s)}
                 </p>
                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ml-2 ${getStateColor(s.state)}`}>
                   {s.state}
@@ -190,10 +196,10 @@ export default function Inbox() {
                 </button>
                 <div>
                   <h3 className="font-black text-lg text-secondary">
-                    {selectedSession.data?.customerName || selectedSession.wa_number.split('@')[0]}
+                    {selectedSession.data?.customerName || getSessionPhone(selectedSession)}
                   </h3>
                   <p className="text-xs font-bold text-stone-muted uppercase tracking-widest">
-                    {selectedSession.wa_number.split('@')[0]}
+                    {getSessionPhone(selectedSession)}
                   </p>
                 </div>
               </div>

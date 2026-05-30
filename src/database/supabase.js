@@ -282,8 +282,24 @@ async function getSession(waNumber) {
   const TTL = 30 * 60 * 1000;
 
   if (now - lastUpdate > TTL) {
-    await deleteSession(waNumber);
-    return null;
+    // PRESERVE customer mapping for @lid and others
+    const preservedData = {
+      customerPhone: session.data?.customerPhone || '',
+      customerName: session.data?.customerName || ''
+    };
+    
+    // Instead of deleting, just reset the session to IDLE
+    const newSession = { 
+      wa_number: waNumber, 
+      state: 'IDLE', 
+      data: preservedData, 
+      updated_at: new Date().toISOString() 
+    };
+    
+    // Fire and forget upsert so it doesn't block
+    upsertSession(waNumber, 'IDLE', preservedData).catch(err => logger.error({ err }, 'Error preserving session TTL'));
+    
+    return newSession;
   }
 
   return session;

@@ -1034,6 +1034,13 @@ async function handleNamePhoneCollection(from, name, text, data) {
   if (cName && cPhone) {
     data.customerName = cName;
     data.customerPhone = cPhone;
+    
+    // Sisipkan nomor asli ke notes agar admin tetap bisa melihat nomor aslinya 
+    // karena order sekarang akan disimpan menggunakan JID (@lid)
+    if (!data.notes?.includes(`(HP: ${cPhone})`)) {
+      data.notes = data.notes ? `${data.notes} (HP: ${cPhone})` : `(HP: ${cPhone})`;
+    }
+    
     await upsertSession(from, ST.CONFIRM, data);
     await db.upsertCustomer(cPhone, cName);
     return await finalizeOrder(from, name, data);
@@ -1043,7 +1050,9 @@ async function handleNamePhoneCollection(from, name, text, data) {
 }
 
 async function finalizeOrder(from, name, data) {
-  const finalWaNumber = data.customerPhone || from;
+  // Selalu gunakan JID asli (from) sebagai wa_number agar bisa dilacak 
+  // meskipun session expired (khususnya untuk user @lid)
+  const finalWaNumber = from;
 
   const { data: newOrder, error } = await db.supabase.from('orders').insert([{
     wa_number: finalWaNumber,

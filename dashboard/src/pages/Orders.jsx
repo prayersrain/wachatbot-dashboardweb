@@ -27,6 +27,16 @@ import * as XLSX from 'xlsx';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { SkeletonCard } from '../components/Skeleton';
 
+const getRealPhone = (order) => {
+  if (!order) return '-';
+  let phone = order.wa_number?.split('@')[0] || '-';
+  if (order.notes) {
+    const match = order.notes.match(/\(HP:\s*(\d+)\)/);
+    if (match) phone = match[1];
+  }
+  return phone;
+};
+
 const STATUS_CONFIG = {
   waiting_payment: { label: 'Menunggu Bayar', color: '#F59E0B', icon: Clock },
   confirmed: { label: 'Konfirmasi', color: '#8B5CF6', icon: CheckCircle2 },
@@ -225,7 +235,7 @@ export default function Orders() {
     const dataToExport = orders.map(o => ({
       'No. Pesanan': `#${o.order_number}`,
       'Nama': o.customer_name,
-      'WA': o.wa_number?.split('@')[0],
+      'WA': getRealPhone(o),
       'Status': STATUS_CONFIG[o.order_status]?.label || o.order_status,
       'Total': o.total_price,
       'Tanggal': new Date(o.created_at).toLocaleString('id-ID')
@@ -521,7 +531,7 @@ export default function Orders() {
                   </div>
                 </div>
                 <a 
-                  href={`https://wa.me/${selectedOrder.wa_number?.split('@')[0]}`} 
+                  href={`https://wa.me/${getRealPhone(selectedOrder)}`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="flex items-center gap-3 bg-stone-50 px-4 py-3 rounded-2xl border border-stone-100 hover:border-emerald-200 transition-all"
@@ -529,7 +539,7 @@ export default function Orders() {
                   <MessageSquare size={18} className="text-emerald-500" />
                   <div>
                     <p className="text-[10px] font-black text-stone-muted uppercase tracking-widest">WhatsApp</p>
-                    <p className="font-bold text-sm text-secondary">{selectedOrder.wa_number?.split('@')[0]}</p>
+                    <p className="font-bold text-sm text-secondary">{getRealPhone(selectedOrder)}</p>
                   </div>
                 </a>
               </div>
