@@ -130,8 +130,7 @@ async function handleCustomerMessage(from, name, message) {
   } else if (text.trim().length > 0) {
     let activeOrderContext = '';
     if (state === ST.IDLE || state === ST.ADMIN_TAKEOVER) {
-      const phoneToSearch = session?.data?.customerPhone || from;
-      const activeOrders = await db.getActiveOrdersByPhone(phoneToSearch);
+      const activeOrders = await db.getActiveOrdersByPhone(from, session?.data?.customerPhone);
       if (activeOrders && activeOrders.length > 0) {
         activeOrderContext = `\n\nINFO PENTING UNTUK AI: Pelanggan ini sedang memiliki PESANAN AKTIF. Berikut detail pesanannya:\n`;
         activeOrders.forEach(ord => {
@@ -160,7 +159,7 @@ async function handleCustomerMessage(from, name, message) {
     const isLidWaitingPhone = state === ST.CONFIRM && from.endsWith('@lid') && (!session?.data?.customerPhone || session.data.customerPhone === '');
     const hasPhoneNumber = /(\+?62|0)\d{8,13}/.test(text.replace(/[\s-]/g, ''));
 
-    const activeOrdersCheck = await db.getActiveOrdersByPhone(from);
+    const activeOrdersCheck = await db.getActiveOrdersByPhone(from, session?.data?.customerPhone);
     const hasActiveOrder = activeOrdersCheck && activeOrdersCheck.length > 0;
 
     // Pengecualian: Jika di awal (IDLE) dan sapaan, biarkan flow normal berjalan HANYA jika tidak ada pesanan aktif
@@ -507,10 +506,9 @@ async function handleCustomerMessage(from, name, message) {
   switch (state) {
     case ST.IDLE:
       // Cek apakah pelanggan pernah pesan sebelumnya
-      const lastOrder = await db.getLastOrder(from);
+      const lastOrder = await db.getLastOrder(from, session?.data?.customerPhone);
       if (lastOrder && lastOrder.customer_name) {
         data.customerName = lastOrder.customer_name;
-        data.customerPhone = lastOrder.customer_phone;
         data.chatMode = 'guided';
         await upsertSession(from, ST.REGION_SELECT, data);
         return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);

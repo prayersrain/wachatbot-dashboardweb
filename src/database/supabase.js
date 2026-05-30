@@ -210,8 +210,15 @@ async function getRecentActiveOrders(days = 3) {
   return data;
 }
 
-async function getActiveOrdersByPhone(waNumber) {
+async function getActiveOrdersByPhone(waNumber, altPhone = null) {
   const cleanPhone = waNumber.replace('@c.us', '').replace(/\D/g, '');
+  let orQuery = `wa_number.eq.${cleanPhone},wa_number.eq.${waNumber}`;
+  
+  if (altPhone && altPhone !== waNumber) {
+    const cleanAlt = altPhone.replace('@c.us', '').replace(/\D/g, '');
+    orQuery += `,wa_number.eq.${cleanAlt},wa_number.eq.${altPhone}`;
+  }
+
   const { data, error } = await supabase
     .from('orders')
     .select('*')
@@ -224,12 +231,19 @@ async function getActiveOrdersByPhone(waNumber) {
   return data;
 }
 
-async function getLastOrder(waNumber) {
+async function getLastOrder(waNumber, altPhone = null) {
   const cleanPhone = waNumber.replace('@c.us', '').replace(/\D/g, '');
+  let orQuery = `wa_number.eq.${cleanPhone},wa_number.eq.${waNumber}`;
+
+  if (altPhone && altPhone !== waNumber) {
+    const cleanAlt = altPhone.replace('@c.us', '').replace(/\D/g, '');
+    orQuery += `,wa_number.eq.${cleanAlt},wa_number.eq.${altPhone}`;
+  }
+
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .or(`wa_number.eq.${cleanPhone},wa_number.eq.${waNumber}`)
+    .or(orQuery)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
