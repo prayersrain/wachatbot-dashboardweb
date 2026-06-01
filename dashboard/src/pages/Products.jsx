@@ -133,7 +133,7 @@ export default function Products() {
       .update({
         name: editForm.name,
         price: Number(editForm.price),
-        stock_status: editForm.stock_status,
+        stock_type: editForm.stock_type,
         description: editForm.description
       })
       .eq('id', editingId);
@@ -211,11 +211,11 @@ export default function Products() {
 
                 <div className="absolute top-3 left-3">
                   <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm border ${
-                    product.stock_status === 'ready' ? 'bg-emerald-500 text-white border-emerald-400' : 
-                    product.stock_status === 'po' ? 'bg-primary text-white border-primary/50' : 
+                    product.stock_type === 'ready' ? 'bg-emerald-500 text-white border-emerald-400' : 
+                    product.stock_type === 'po' ? 'bg-primary text-white border-primary/50' : 
                     'bg-rose-500 text-white border-rose-400'
                   }`}>
-                    {product.stock_status}
+                    {product.stock_type === 'po' ? 'PO' : product.stock_type === 'ready' ? 'Ready' : product.stock_type}
                   </span>
                 </div>
               </div>
@@ -255,8 +255,8 @@ export default function Products() {
                     <label className="text-[9px] font-black text-stone-muted uppercase tracking-widest ml-1">Status Stok</label>
                     <select 
                       className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-primary appearance-none cursor-pointer"
-                      value={editForm.stock_status} 
-                      onChange={(e) => setEditForm(prev => ({ ...prev, stock_status: e.target.value }))}
+                      value={editForm.stock_type} 
+                      onChange={(e) => setEditForm(prev => ({ ...prev, stock_type: e.target.value }))}
                     >
                       <option value="ready">Ready Stock</option>
                       <option value="po">Pre-Order (PO)</option>
