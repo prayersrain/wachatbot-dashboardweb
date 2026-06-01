@@ -135,7 +135,7 @@ export default function Inbox() {
   if (loading) return <div>Loading inbox...</div>;
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 pb-6 overflow-hidden max-w-full">
+    <div className="h-[calc(100dvh-12.5rem)] lg:h-[calc(100vh-4rem)] flex gap-4 lg:gap-6 pb-2 lg:pb-6 overflow-hidden max-w-full">
       {/* Sidebar: Session List */}
       <div className={`w-full md:w-1/3 bg-white border border-stone-100 rounded-[32px] shadow-sm flex-col overflow-hidden ${selectedSession ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-6 border-b border-stone-100">
@@ -248,7 +248,7 @@ export default function Inbox() {
                     onChange={e => setMessage(e.target.value)}
                     placeholder="Ketik balasan Anda..." 
                     disabled={sending}
-                    className="flex-1 min-w-0 w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-sm"
+                    className="flex-1 min-w-0 w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-medium text-base md:text-sm"
                   />
                   <button 
                     type="submit" 
