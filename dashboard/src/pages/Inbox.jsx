@@ -146,7 +146,7 @@ export default function Inbox() {
           <p className="text-xs font-bold text-stone-muted uppercase tracking-widest mt-2">
             {sessions.length} Percakapan Aktif
           </p>
-          <div className="flex gap-2 overflow-x-auto pb-2 mt-4 scrollbar-hide">
+          <div className="flex flex-wrap gap-2 pb-2 mt-4">
             {['ALL', 'IDLE', 'ORDER', 'LOCATION', 'CONFIRM', 'PAYMENT', 'ADMIN_TAKEOVER'].map(f => (
               <button 
                 key={f}
