@@ -191,7 +191,7 @@ export default function Products() {
                   </div>
                 )}
                 
-                <label className="absolute inset-0 bg-secondary/60 backdrop-blur-[2px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <label className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-md text-secondary hover:text-primary hover:bg-white p-2 rounded-xl shadow-lg border border-stone-100 cursor-pointer transition-all hover:scale-105 active:scale-95 z-10">
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -200,12 +200,9 @@ export default function Products() {
                     disabled={uploadingId === product.id}
                   />
                   {uploadingId === product.id ? (
-                    <Loader2 className="animate-spin text-white w-8 h-8" />
+                    <Loader2 className="animate-spin w-5 h-5" />
                   ) : (
-                    <div className="text-white flex flex-col items-center gap-2">
-                      <Camera size={24} strokeWidth={2.5} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Ganti Foto</span>
-                    </div>
+                    <Camera size={20} strokeWidth={2.5} />
                   )}
                 </label>
 

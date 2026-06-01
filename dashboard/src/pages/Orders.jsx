@@ -411,17 +411,9 @@ export default function Orders() {
                     <p className="text-lg font-black text-primary tracking-tight leading-none">Rp {Number(order.total_price).toLocaleString('id-ID')}</p>
                   </div>
                   
-                  <div onClick={e => e.stopPropagation()} className="relative">
-                    <select 
-                      className="bg-stone-100 hover:bg-stone-200 border-none rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest text-secondary outline-none appearance-none cursor-pointer pr-8"
-                      value={order.order_status}
-                      onChange={(e) => updateStatus(order.id, e.target.value)}
-                    >
-                      {ORDER_STATUSES.filter(s => s !== 'all').map(s => (
-                        <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-                      ))}
-                    </select>
-                    <Filter size={10} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Lihat Detail</span>
+                    <ChevronRight size={14} className="text-stone-300 group-hover:text-primary transition-colors" />
                   </div>
                 </div>
               </div>
@@ -608,13 +600,50 @@ export default function Orders() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-               {selectedOrder.order_status !== 'completed' && (
+               {selectedOrder.order_status === 'waiting_payment' && (
+                 <button 
+                  onClick={() => askConfirm(selectedOrder.id, 'confirmed', selectedOrder.order_number)}
+                  className="flex-1 bg-primary hover:bg-secondary text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-3"
+                 >
+                   <CheckCircle2 size={22} />
+                   Konfirmasi Pembayaran
+                 </button>
+               )}
+               {selectedOrder.order_status === 'confirmed' && (
+                 <button 
+                  onClick={() => askConfirm(selectedOrder.id, 'packing', selectedOrder.order_number)}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-amber-200 transition-all flex items-center justify-center gap-3"
+                 >
+                   <Package size={22} />
+                   Mulai Proses (Packing)
+                 </button>
+               )}
+               {selectedOrder.order_status === 'packing' && (
+                 <button 
+                  onClick={() => askConfirm(selectedOrder.id, 'shipping', selectedOrder.order_number)}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-blue-200 transition-all flex items-center justify-center gap-3"
+                 >
+                   <Truck size={22} />
+                   Kirim Pesanan
+                 </button>
+               )}
+               {selectedOrder.order_status === 'shipping' && (
                  <button 
                   onClick={() => askConfirm(selectedOrder.id, 'completed', selectedOrder.order_number)}
                   className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-emerald-200 transition-all flex items-center justify-center gap-3"
                  >
                    <CheckCircle2 size={22} />
-                   Selesaikan
+                   Selesaikan Pesanan
+                 </button>
+               )}
+               
+               {['waiting_payment', 'confirmed'].includes(selectedOrder.order_status) && (
+                 <button 
+                  onClick={() => askConfirm(selectedOrder.id, 'cancelled', selectedOrder.order_number)}
+                  className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-base hover:bg-rose-100 transition-all"
+                  title="Batalkan Pesanan"
+                 >
+                   <XCircle size={22} />
                  </button>
                )}
                <button 
@@ -632,13 +661,24 @@ export default function Orders() {
       {/* Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmState.open}
-        title={confirmState.action === 'completed' ? 'Selesaikan Pesanan?' : 'Batalkan Pesanan?'}
-        message={confirmState.action === 'completed' 
-          ? `Tandai pesanan #${confirmState.orderNumber} sebagai selesai?`
-          : `Yakin ingin membatalkan pesanan #${confirmState.orderNumber}? Aksi ini tidak bisa dibatalkan.`
+        title={
+          confirmState.action === 'confirmed' ? 'Konfirmasi Pembayaran?' :
+          confirmState.action === 'packing' ? 'Mulai Proses?' :
+          confirmState.action === 'shipping' ? 'Kirim Pesanan?' :
+          confirmState.action === 'completed' ? 'Selesaikan Pesanan?' :
+          'Batalkan Pesanan?'
         }
-        confirmLabel={confirmState.action === 'completed' ? 'Ya, Selesai' : 'Ya, Batalkan'}
-        variant={confirmState.action === 'completed' ? 'success' : 'danger'}
+        message={
+          confirmState.action === 'confirmed' ? `Tandai pesanan #${confirmState.orderNumber} sudah dibayar?` :
+          confirmState.action === 'packing' ? `Tandai pesanan #${confirmState.orderNumber} sedang diproses?` :
+          confirmState.action === 'shipping' ? `Tandai pesanan #${confirmState.orderNumber} sedang dikirim?` :
+          confirmState.action === 'completed' ? `Tandai pesanan #${confirmState.orderNumber} sebagai selesai?` :
+          `Yakin ingin membatalkan pesanan #${confirmState.orderNumber}? Aksi ini tidak bisa dibatalkan.`
+        }
+        confirmLabel={
+          confirmState.action === 'cancelled' ? 'Ya, Batalkan' : 'Ya, Lanjutkan'
+        }
+        variant={confirmState.action === 'cancelled' ? 'danger' : 'success'}
         onConfirm={handleConfirmAction}
         onCancel={() => setConfirmState({ open: false, orderId: null, action: null, orderNumber: '' })}
       />

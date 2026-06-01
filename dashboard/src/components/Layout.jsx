@@ -30,12 +30,20 @@ export default function Layout({ children }) {
           </div>
           <h2 className="font-bold text-secondary text-base">Yoyo Bakery</h2>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
-        >
-          <LogOut size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `w-9 h-9 flex items-center justify-center rounded-full transition-colors border ${isActive ? 'bg-primary text-white border-primary' : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'}`}
+          >
+            <Settings size={16} />
+          </NavLink>
+          <button 
+            onClick={handleLogout}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </header>
 
       {/* Sidebar - Desktop */}
@@ -91,7 +99,7 @@ export default function Layout({ children }) {
 
       {/* Bottom Navigation - Mobile */}
       <nav className="lg:hidden fixed bottom-4 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-stone-200/50 rounded-[24px] flex justify-around items-center px-2 z-[100] shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-        {NavItems.map((item) => (
+        {NavItems.filter(item => item.path !== '/settings').map((item) => (
           <NavLink 
             key={item.path} 
             to={item.path} 
