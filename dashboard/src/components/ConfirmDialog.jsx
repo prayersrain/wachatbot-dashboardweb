@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 
 export default function ConfirmDialog({ 
@@ -35,9 +36,9 @@ export default function ConfirmDialog({
 
   const isSuccess = variant === 'success';
 
-  return (
+  return createPortal(
     <div 
-      className={`fixed inset-0 z-[9998] flex items-center justify-center p-4 transition-all duration-200 ${visible ? 'bg-stone-900/50 backdrop-blur-sm' : 'bg-transparent'}`}
+      className={`fixed inset-0 z-[10000] flex items-center justify-center p-4 transition-all duration-200 ${visible ? 'bg-stone-900/50 backdrop-blur-sm' : 'bg-transparent'}`}
       onClick={handleCancel}
     >
       <div 
@@ -70,6 +71,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -640,10 +640,11 @@ export default function Orders() {
                {['waiting_payment', 'confirmed'].includes(selectedOrder.order_status) && (
                  <button 
                   onClick={() => askConfirm(selectedOrder.id, 'cancelled', selectedOrder.order_number)}
-                  className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-base hover:bg-rose-100 transition-all"
+                  className="px-6 py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-base hover:bg-rose-100 transition-all flex items-center justify-center gap-2"
                   title="Batalkan Pesanan"
                  >
                    <XCircle size={22} />
+                   Batalkan
                  </button>
                )}
                <button 
