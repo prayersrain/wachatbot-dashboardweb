@@ -382,7 +382,12 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
         
         const matchResult = fuzzyMatchProduct(matchName, products);
         if (matchResult.match) {
-          data.items.push({ name: matchResult.match.name, qty: pending.qty || 1, price: matchResult.match.price });
+          const existingIdx = data.items.findIndex(e => e.name.toLowerCase() === matchResult.match.name.toLowerCase());
+          if (existingIdx !== -1) {
+            data.items[existingIdx].qty += pending.qty || 1;
+          } else {
+            data.items.push({ name: matchResult.match.name, qty: pending.qty || 1, price: matchResult.match.price });
+          }
           resolvedIndices.push(i);
           resolvedAny = true;
           updated = true;
@@ -551,6 +556,20 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
           data.ambiguousPending.push({ original: newItem.name, matches: matchResult.ambiguous, qty: newItem.qty });
           updated = true;
         } else if (matchResult.match) {
+          // Clear matching ambiguous pending items
+          if (data.ambiguousPending && data.ambiguousPending.length > 0) {
+            const resolvedIndices = [];
+            for (let i = 0; i < data.ambiguousPending.length; i++) {
+              const pending = data.ambiguousPending[i];
+              if (pending.matches && pending.matches.some(m => m.toLowerCase() === matchResult.match.name.toLowerCase())) {
+                resolvedIndices.push(i);
+              }
+            }
+            resolvedIndices.sort((a, b) => b - a).forEach(idx => {
+              data.ambiguousPending.splice(idx, 1);
+            });
+          }
+
           const existingIdx = data.items.findIndex(e => e.name.toLowerCase() === matchResult.match.name.toLowerCase());
           
           if (action === 'update' && existingIdx !== -1) {
@@ -593,7 +612,17 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
 
 
   if (updated) {
-    data.items = data.items.filter(i => i.qty > 0);
+    // Merge duplicate items by name
+    const merged = [];
+    data.items.forEach(item => {
+      const existing = merged.find(m => m.name.toLowerCase() === item.name.toLowerCase());
+      if (existing) {
+        existing.qty += item.qty;
+      } else {
+        merged.push({ ...item });
+      }
+    });
+    data.items = merged.filter(i => i.qty > 0);
     await upsertSession(from, ST.WAITING_ORDER, data);
   }
 

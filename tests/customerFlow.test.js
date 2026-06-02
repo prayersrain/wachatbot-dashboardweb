@@ -427,4 +427,49 @@ describe('Simplified Customer Flow (4 States)', () => {
     // Should send the template with pre-filled items
     expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('Pesanan: Bolen Coklat 2'));
   });
+
+  test('Scenario 21: Ambiguous product resolution via AI and prevention of quantity inflation', async () => {
+    // Step 1: WAITING_ORDER state, with ambiguous item "Bolen" in the queue
+    db.getSession.mockResolvedValueOnce({
+      state: 'WAITING_ORDER',
+      data: {
+        customerName: 'Budi',
+        customerPhone: '081234567890',
+        deliveryMethod: 'pickup',
+        items: [],
+        ambiguousPending: [{
+          original: 'Bolen 2',
+          matches: ['Bolen Coklat', 'Bolen Keju'],
+          qty: 2
+        }]
+      }
+    });
+
+    db.getProducts.mockResolvedValue([
+      { id: 1, name: 'Bolen Coklat', price: 34000, stock_type: 'ready' },
+      { id: 2, name: 'Bolen Keju', price: 35000, stock_type: 'ready' }
+    ]);
+
+    // AI parses the clarification "bolen coklat 1, bolen keju 1"
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'ORDER',
+      items: [
+        { name: 'Bolen Coklat', qty: 1, action: 'add' },
+        { name: 'Bolen Keju', qty: 1, action: 'add' }
+      ]
+    });
+
+    await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'bolen coklat 1, bolen keju 1' } });
+
+    // The ambiguousPending should be cleared completely, and items should be added with correct quantities.
+    // It should finalize immediately since all info is complete.
+    expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'PAYMENT', expect.objectContaining({
+      ambiguousPending: [],
+      items: [
+        expect.objectContaining({ name: 'Bolen Coklat', qty: 1 }),
+        expect.objectContaining({ name: 'Bolen Keju', qty: 1 })
+      ]
+    }));
+  });
 });
+
