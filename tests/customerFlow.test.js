@@ -362,4 +362,67 @@ describe('Simplified Customer Flow (4 States)', () => {
     // Should prompt the user for changes
     expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('pesanan sebelumnya dibatalkan untuk diubah'));
   });
+
+  test('Scenario 19: Pickup dari awal (no Jakarta address, skip region select, ask missing info)', async () => {
+    db.getSession.mockResolvedValueOnce(null);
+
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'ORDER',
+      items: [{ name: 'Bolen', qty: 2 }],
+      deliveryMethod: 'pickup'
+    });
+
+    await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'Mau pesan Bolen 2 ambil di toko' } });
+
+    // Should transition directly to WAITING_ORDER state, skipping REGION_SELECT
+    expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
+      isPickup: true,
+      deliveryMethod: 'pickup',
+      items: [expect.objectContaining({ name: 'Bolen Coklat', qty: 2 })]
+    }));
+
+    // Should ask for missing name & phone number since they are not provided
+    expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('nama & nomor HP penerima'));
+  });
+
+  test('Scenario 20: Pre-parsed order (items pre-filled in template)', async () => {
+    // Step 1: "Pesan Bolen 2" in IDLE state -> transitions to REGION_SELECT and parses items
+    db.getSession.mockResolvedValueOnce(null);
+
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'ORDER',
+      items: [{ name: 'Bolen', qty: 2 }]
+    });
+
+    await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'Pesan Bolen 2' } });
+
+    // Should save items and transition to REGION_SELECT
+    expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'REGION_SELECT', expect.objectContaining({
+      items: [expect.objectContaining({ name: 'Bolen Coklat', qty: 2 })]
+    }));
+
+    // Step 2: User responds "Jakarta" in REGION_SELECT state -> transitions to WAITING_ORDER and sends pre-filled template
+    db.getSession.mockResolvedValueOnce({
+      state: 'REGION_SELECT',
+      data: {
+        customerName: 'Budi',
+        items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }]
+      }
+    });
+
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'REGION_MATCH',
+      region: 'jakarta'
+    });
+
+    await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'Jakarta' } });
+
+    // Should transition to WAITING_ORDER
+    expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
+      items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }]
+    }));
+
+    // Should send the template with pre-filled items
+    expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('Pesanan: Bolen Coklat 2'));
+  });
 });

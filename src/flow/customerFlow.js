@@ -177,12 +177,25 @@ async function buildAndSendTemplate(from, data) {
     prefPhone = prefPhone.split('@')[0];
   }
 
+  let prefItems = '';
+  if (data.items && data.items.length > 0) {
+    prefItems = data.items.map(item => `${item.name} ${item.qty}`).join(', ');
+  } else {
+    prefItems = '(contoh: Nastar Classic 2, Bolen Coklat 1)';
+  }
+
+  const deliveryText = data.deliveryMethod === 'pickup' ? 'Ambil di Toko' : 
+                       (data.deliveryMethod === 'kirim' ? 'Kirim' : 'Kirim / Ambil di Toko');
+
+  const addressText = data.customerAddress || 
+                      (data.deliveryMethod === 'pickup' ? '' : '(mohon diisi jika pilih kirim, kosongkan bila ambil di toko)');
+
   const templateMsg = `📋 *FORMAT PESANAN YOYO BAKERY*\n` +
     `_(Salin & isi, lalu kirim kembali ya Kak)_\n\n` +
     `Nama: ${prefName}\n` +
-    `Pesanan: (contoh: Nastar Classic 2, Bolen Coklat 1)\n` +
-    `Pengiriman: Kirim / Ambil di Toko\n` +
-    `Alamat: (mohon diisi jika pilih kirim, kosongkan bila ambil di toko)\n` +
+    `Pesanan: ${prefItems}\n` +
+    `Pengiriman: ${deliveryText}\n` +
+    `Alamat: ${addressText}\n` +
     `No HP: ${prefPhone}\n` +
     `Catatan: (opsional)`;
     
@@ -830,7 +843,7 @@ async function handleCustomerMessage(from, name, message) {
   if (state === ST.IDLE) {
     const jakartaKeywords = ['jakarta', 'dki jakarta', 'jakarta pusat', 'jakarta selatan', 'jakarta barat', 'jakarta timur', 'jakarta utara', 'jakpus', 'jaksel', 'jakbar', 'jaktim', 'jakut', 'jl.', 'jalan'];
     const hasJakartaAddr = jakartaKeywords.some(k => t.includes(k)) || (aiData && aiData.address && aiData.address.toLowerCase().includes('jakarta'));
-    const isLuarJakarta = !hasJakartaAddr && (['bandung', 'surabaya', 'semarang', 'yogyakarta', 'jogja', 'medan', 'makassar', 'palembang', 'bekasi', 'tangerang', 'depok', 'bogor'].some(k => t.includes(k)) || (aiData && aiData.region === 'luar_jakarta'));
+    const isLuarJakarta = !hasJakartaAddr && !isPickupGlobal && (['bandung', 'surabaya', 'semarang', 'yogyakarta', 'jogja', 'medan', 'makassar', 'palembang', 'bekasi', 'tangerang', 'depok', 'bogor'].some(k => t.includes(k)) || (aiData && aiData.region === 'luar_jakarta'));
 
     if (isLuarJakarta) {
       await upsertSession(from, ST.REJECTED, data);
@@ -838,13 +851,22 @@ async function handleCustomerMessage(from, name, message) {
       return sender.sendText(from, `Maaf Kak, pemesanan via WhatsApp hanya untuk area *Jakarta* ya. 🙏\n\nUntuk luar Jakarta, Kakak bisa pesan melalui Shopee kami:\n🛒 *${shopeeUrl}*\n\nTerima kasih banyak! 😊🍞`);
     }
 
-    if (hasJakartaAddr) {
+    if (hasJakartaAddr || isPickupGlobal) {
       data.customerName = aiData?.customerName || name;
       data.customerPhone = aiData?.customerPhone || null;
       data.customerAddress = aiData?.address || null;
       data.deliveryMethod = aiData?.deliveryMethod || null;
       data.notes = aiData?.notes || '';
       
+      if (isPickupGlobal) {
+        data.isPickup = true;
+        data.deliveryFee = 0;
+        data.deliveryMethod = 'pickup';
+        if (!data.notes?.includes('(Pickup)')) {
+          data.notes = data.notes ? data.notes + ' (Pickup)' : '(Pickup)';
+        }
+      }
+
       await upsertSession(from, ST.WAITING_ORDER, data);
       return await processWaitingOrder(from, name, text, { state: ST.WAITING_ORDER, data }, aiData, templateData, message);
     } else {
@@ -852,11 +874,31 @@ async function handleCustomerMessage(from, name, message) {
       if (lastOrder && lastOrder.customer_name) {
         data.customerName = lastOrder.customer_name;
         data.customerPhone = getDisplayPhone(lastOrder.wa_number, lastOrder.notes);
-        await upsertSession(from, ST.REGION_SELECT, data);
-        return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
       } else {
         data.customerName = name;
-        await upsertSession(from, ST.REGION_SELECT, data);
+      }
+
+      // Preserve items from AI if any
+      if (aiData && aiData.items && aiData.items.length > 0) {
+        const products = await db.getProducts();
+        const parsedItems = [];
+        for (const item of aiData.items) {
+          const matchResult = fuzzyMatchProduct(item.name, products);
+          if (matchResult.match) {
+            parsedItems.push({ name: matchResult.match.name, qty: item.qty || 1, price: matchResult.match.price });
+          } else {
+            parsedItems.push({ name: item.name, qty: item.qty || 1, price: 0 });
+          }
+        }
+        if (parsedItems.length > 0) {
+          data.items = parsedItems;
+        }
+      }
+      
+      await upsertSession(from, ST.REGION_SELECT, data);
+      if (lastOrder && lastOrder.customer_name) {
+        return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+      } else {
         return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
       }
     }
