@@ -328,4 +328,38 @@ describe('Simplified Customer Flow (4 States)', () => {
       customerPhone: '6285283142289'
     }));
   });
+
+  test('Scenario 18: Typing "ubah" in PAYMENT state should trigger modification flow (not cancellation)', async () => {
+    db.getSession.mockResolvedValueOnce({
+      state: 'PAYMENT',
+      data: {
+        orderId: 'order-123',
+        orderNumber: 42,
+        items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }],
+        customerName: 'Budi',
+        customerPhone: '081234567890',
+        deliveryMethod: 'pickup'
+      }
+    });
+
+    // Make quickIntentMatch NOT intercept as CANCEL (since we removed ubah from CANCELS)
+    // We mock aiParseOrder as BACK or similar, or let it fall back
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'BACK'
+    });
+
+    await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'ubah' } });
+
+    // Should cancel old order in DB
+    expect(db.updateOrder).toHaveBeenCalledWith('order-123', { order_status: 'cancelled' });
+    
+    // Should revert back to WAITING_ORDER state and preserve current items
+    expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
+      orderId: null,
+      items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }]
+    }));
+    
+    // Should prompt the user for changes
+    expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('pesanan sebelumnya dibatalkan untuk diubah'));
+  });
 });

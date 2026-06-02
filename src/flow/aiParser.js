@@ -10,7 +10,7 @@ const GREETINGS = /^(halo|hi|hai|pagi|siang|sore|malam|assalamu|ping|p)$/i;
 const ORDER_GREETINGS =
   /^(pesan|order|mau beli|beli|mau pesen|pesen|mau order)$/i;
 const CONFIRMS = /^(konfirmasi|benar|betul|iya|yak|yep|ya bener|sudah benar)$/i;
-const CANCELS = /^(batal|cancel|ngga jadi|tidak jadi|kembali|ulang|ubah)$/i;
+const CANCELS = /^(batal|cancel|ngga jadi|tidak jadi|ulang)$/i;
 const BACKS = /^(kembali|back|ubah|edit)$/i;
 const THANKS = /^(makasih|terima kasih|thanks|tq|suwun|thank you|nuhun)$/i;
 const ACKNOWLEDGES =

@@ -786,7 +786,7 @@ async function handleCustomerMessage(from, name, message) {
     if (message.type === 'image') return await handlePaymentProof(from, message);
     
     const isCancel = t === 'batal' || t === 'cancel' || (aiData && aiData.intent === 'CANCEL');
-    const isModification = ['tambah', 'kurang', 'ubah', 'ganti', 'kurangi', 'jadinya'].some(k => t.includes(k)) || (aiData && aiData.intent === 'ORDER');
+    const isModification = ['tambah', 'kurang', 'ubah', 'ganti', 'kurangi', 'jadinya', 'edit', 'kembali'].some(k => t.includes(k)) || (aiData && (aiData.intent === 'ORDER' || aiData.intent === 'BACK'));
     
     if (isCancel) {
       if (session?.data?.orderId) {
