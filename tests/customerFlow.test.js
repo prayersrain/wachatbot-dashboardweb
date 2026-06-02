@@ -30,13 +30,16 @@ describe('Simplified Customer Flow (4 States)', () => {
   beforeEach(() => {
     jest.resetAllMocks();
 
-    // Re-setup db.supabase chain which gets reset by resetAllMocks
+    const queryChain = {
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: { order_number: 42, id: 'order-123' }, error: null })
+      })
+    };
     db.supabase = {
       from: jest.fn().mockReturnValue({
-        insert: jest.fn().mockReturnValue({
-          select: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: { order_number: 42, id: 'order-123' }, error: null })
-          })
+        insert: jest.fn().mockReturnValue(queryChain),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue(queryChain)
         })
       })
     };
@@ -264,11 +267,11 @@ describe('Simplified Customer Flow (4 States)', () => {
     // Should NOT cancel old order
     expect(db.updateOrder).not.toHaveBeenCalled();
     
-    // Should revert back to WAITING_ORDER and restore items (keeping orderId & orderNumber)
+    // Should process the edit immediately and keep the orderId
     expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
       orderId: 'order-123',
       orderNumber: 42,
-      items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }] // First reverted, then processed
+      items: [{ name: 'Bolen Coklat', qty: 3, price: 34000 }] // Items updated immediately by the new UX flow
     }));
   });
 

@@ -241,6 +241,7 @@ ATURAN KLASIFIKASI INTENT:
 8. Jika pelanggan menyebutkan nama makanan untuk pesanan baru atau template pesanan, ekstrak ke array "items" dengan intent "ORDER". Jika mereka mengisi template format, gunakan intent "TEMPLATE_FILL".
 
 ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER atau TEMPLATE_FILL):
+- PENTING: Jika pelanggan tidak menyebutkan jumlah/qty pesanan secara spesifik pada suatu produk, asumsikan qty: 1. Jika pesanan berbentuk daftar, jangan keliru mengambil simbol/nomor urut sebagai kuantitas!
 - Bolen/Roll Cake/Nona Manis: 10 pcs per kotak. Roti (termasuk Roti Sisir): 4 pcs per bungkus/kotak. Jangan pernah sebut isinya 5!
 - KONVERSI SATUAN PENTING: Harga kami adalah PER KOTAK/BOX. Jika pelanggan memesan dengan sebutan "biji" / "pcs" / "buah", Anda WAJIB mengkonversinya ke jumlah box!
   Contoh: "nona manis 10 biji" -> 1 box (qty: 1).
@@ -248,10 +249,10 @@ ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER atau TEMPLATE_FI
   Contoh: "roti sisir 4 buah" -> 1 box (qty: 1).
   JANGAN PERNAH mengisi qty: 10 jika maksud pelanggan adalah 10 biji (1 box)!
 - JIKA Anda harus memberikan penjelasan panjang mengenai daftar pilihan varian/menu, WAJIB gunakan format daftar ke bawah (bullet points atau nomor 1, 2, 3). JANGAN menggunakan format paragraf panjang yang menyambung agar pelanggan mudah membacanya.
-- Gunakan action: "remove" untuk pembatalan item.
+- Gunakan action: "remove" untuk pembatalan/pengurangan suatu item barang tertentu (misal: "gak jadi pesen nastar"). JANGAN gunakan intent CANCEL jika pelanggan hanya ingin mengurangi/menghapus sebagian barang.
 - Gunakan action: "update" jika pelanggan bermaksud MENGUBAH / MENGGANTI jumlah pesanan yang sudah ada di keranjang menjadi jumlah baru, ATAU jika mereka mengulangi pesanan mereka (re-listing) untuk mengoreksi kesalahan (contoh: "jadinya nastar 1 aja", "kue soes 1, sisir keju 1 ya", atau menyebut daftar "1. kue soes 1. sisir keju").
 - Gunakan action: "add" HANYA jika pelanggan dengan tegas menyatakan ingin MENAMBAH pesanan (contoh: "tambah nastar 1"). Jika tidak ada kata tambah, dan pelanggan berada di tahap konfirmasi/lokasi/pembayaran, asumsikan mereka sedang mengoreksi pesanan (gunakan "update").
-- KHUSUS intent CANCEL: JIKA pelanggan membatalkan KARENA ONGKIR MAHAL, berikan alternatif link Shopee (${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}) untuk ongkir yang lebih hemat.
+- KHUSUS intent CANCEL: Gunakan intent ini HANYA jika pelanggan menyatakan ingin membatalkan KESELURUHAN pesanan secara total. JIKA pelanggan membatalkan KARENA ONGKIR MAHAL, berikan alternatif link Shopee (${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}) untuk ongkir yang lebih hemat.
 
 CONTOH JSON JAWABAN:
 {"intent": "FAQ", "items": [], "customerName": null, "notes": null, "answer": "Ada dong Bu! Ibu bisa langsung mampir ke toko Shopee kami di link berikut ya: https://shopee.co.id/yoyobakery 😊"}
@@ -298,10 +299,14 @@ async function aiParseOrder(
   history = [],
 ) {
   if (!text || text.trim().length === 0) return null;
+  
+  // Membersihkan angka urutan seperti "1. ", "2) ", dll (termasuk yang inline) agar AI tidak salah mengira itu sebagai kuantitas
+  const cleanedText = text.replace(/(^|\s|,)[0-9]+[\.\)]\s+/g, '$1- ');
+
   return (
-    quickIntentMatch(text) ||
+    quickIntentMatch(cleanedText) ||
     (await callGeminiAI(
-      text,
+      cleanedText,
       state,
       ambiguousContext,
       activeOrderContext,

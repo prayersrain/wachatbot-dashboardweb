@@ -30,30 +30,39 @@ const MENU_PAGE1 = path.join(__dirname, '..', 'assets', 'menu-page1.jpg');
 const MENU_PAGE2 = path.join(__dirname, '..', 'assets', 'menu-page2.jpg');
 
 function fuzzyMatchProduct(inputName, products) {
-  let p = products.find(prod => prod.name.toLowerCase() === inputName.toLowerCase());
+  const inputLower = inputName.toLowerCase().trim();
+  let p = products.find(prod => prod.name.toLowerCase() === inputLower);
   if (p) return { match: p, ambiguous: null };
 
-  let matches = products.filter(prod => prod.name.toLowerCase().includes(inputName.toLowerCase()));
-  if (matches.length === 1) return { match: matches[0], ambiguous: null };
-  if (matches.length > 1) return { match: null, ambiguous: matches.map(m => m.name) };
-
-  const inputWords = inputName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const inputWords = inputLower.split(/\s+/).filter(w => w.length > 2);
   if (inputWords.length > 0) {
-    matches = products.filter(prod => {
+    let wordMatches = products.filter(prod => {
+      const prodName = prod.name.toLowerCase();
+      return inputWords.every(w => prodName.includes(w));
+    });
+    
+    if (wordMatches.length === 1) return { match: wordMatches[0], ambiguous: null };
+    if (wordMatches.length > 1) return { match: null, ambiguous: wordMatches.map(m => m.name) };
+    
+    let partialMatches = products.filter(prod => {
       const prodName = prod.name.toLowerCase();
       return inputWords.some(w => prodName.includes(w));
     });
     
-    if (matches.length === 1) return { match: matches[0], ambiguous: null };
-    if (matches.length > 1) {
-      matches.sort((a, b) => {
+    if (partialMatches.length === 1) return { match: partialMatches[0], ambiguous: null };
+    if (partialMatches.length > 1) {
+      partialMatches.sort((a, b) => {
         const aCount = inputWords.filter(w => a.name.toLowerCase().includes(w)).length;
         const bCount = inputWords.filter(w => b.name.toLowerCase().includes(w)).length;
         return bCount - aCount;
       });
-      return { match: null, ambiguous: matches.slice(0, 4).map(m => m.name) };
+      return { match: null, ambiguous: partialMatches.slice(0, 4).map(m => m.name) };
     }
   }
+
+  let matches = products.filter(prod => prod.name.toLowerCase().includes(inputLower));
+  if (matches.length === 1) return { match: matches[0], ambiguous: null };
+  if (matches.length > 1) return { match: null, ambiguous: matches.map(m => m.name) };
 
   return { match: null, ambiguous: null };
 }
@@ -844,7 +853,12 @@ async function handleCustomerMessage(from, name, message) {
   }
 
   // Global Cancel Intent
-  if (aiData && aiData.intent === 'CANCEL') {
+  // Hanya proses CANCEL secara global jika user mengetik kata pembatalan yang persis, atau jika AI mendeteksi CANCEL saat keranjang masih kosong
+  const exactCancelKeywords = ['batal', 'cancel', 'batalkan', 'batal pesanan'];
+  const isExactCancel = exactCancelKeywords.includes(t);
+  const isIdleCancel = aiData && aiData.intent === 'CANCEL' && [ST.IDLE, ST.REGION_SELECT].includes(state);
+  
+  if (isExactCancel || isIdleCancel) {
     if (session?.data?.orderId) {
       await db.updateOrder(session.data.orderId, { order_status: 'cancelled' });
     }
@@ -852,7 +866,7 @@ async function handleCustomerMessage(from, name, message) {
       customerPhone: session?.data?.customerPhone || '',
       customerName: session?.data?.customerName || ''
     });
-    let cancelMsg = aiData.answer || '✅ Pesanan telah dibatalkan. Jika Kakak berubah pikiran, cukup ketik *Halo* untuk memulai pesanan baru ya Kak. 😊';
+    let cancelMsg = (aiData && aiData.answer) ? aiData.answer : '✅ Pesanan telah dibatalkan. Jika Kakak berubah pikiran, cukup ketik *Halo* untuk memulai pesanan baru ya Kak. 😊';
     return sender.sendText(from, cancelMsg);
   }
 
@@ -871,25 +885,13 @@ async function handleCustomerMessage(from, name, message) {
     return sender.sendText(from, rejectionMsg);
   }
 
-  // --- PAYMENT state ---
   if (state === ST.PAYMENT) {
     if (message.type === 'image') return await handlePaymentProof(from, message);
     
-    const isCancel = t === 'batal' || t === 'cancel' || (aiData && aiData.intent === 'CANCEL');
-    const isModification = ['tambah', 'kurang', 'ubah', 'ganti', 'kurangi', 'jadinya', 'edit', 'kembali'].some(k => t.includes(k)) || (aiData && (aiData.intent === 'ORDER' || aiData.intent === 'BACK'));
+    const isExplicitEdit = ['ubah', 'edit', 'ganti', 'revisi'].includes(t);
+    const hasModifyingIntent = aiData && ['ORDER', 'TEMPLATE_FILL'].includes(aiData.intent);
     
-    if (isCancel) {
-      if (session?.data?.orderId) {
-        await db.updateOrder(session.data.orderId, { order_status: 'cancelled' });
-      }
-      await upsertSession(from, ST.IDLE, {
-        customerPhone: session?.data?.customerPhone || '',
-        customerName: session?.data?.customerName || ''
-      });
-      return sender.sendText(from, '✅ Pesanan sebelumnya telah dibatalkan. Kakak bisa mulai memesan lagi kapan saja dengan mengetik *Halo*. 😊');
-    }
-    
-    if (isModification) {
+    if (isExplicitEdit || hasModifyingIntent) {
       const modifiedData = {
         ...session.data,
         totalPrice: null,
@@ -898,13 +900,16 @@ async function handleCustomerMessage(from, name, message) {
       
       await upsertSession(from, ST.WAITING_ORDER, modifiedData);
       
-      const { text: summary } = buildOrderSummary(session.data.items || [], session.data.deliveryFee, session.data.notes);
-      const replyMsg = `⬅️ Siap Kak, pesanan sebelumnya akan diubah.\n\n` +
-        `🧾 *Pesanan saat ini:* (Order #${session.data.orderNumber})\n${summary}\n\n` +
-        `Silakan ketik perubahan Kakak (contoh: "tambah Nastar 1" atau "kurangi Bolen jadi 1").\n` +
-        `Atau Kakak juga bisa menyalin & mengirim ulang format pesanan yang baru. 😊`;
-        
-      return sender.sendText(from, replyMsg);
+      if (isExplicitEdit) {
+        const { text: summary } = buildOrderSummary(session.data.items || [], session.data.deliveryFee, session.data.notes);
+        const replyMsg = `⬅️ Siap Kak, pesanan sebelumnya akan diubah.\n\n` +
+          `🧾 *Pesanan saat ini:* (Order #${session.data.orderNumber})\n${summary}\n\n` +
+          `Silakan ketik perubahan Kakak (contoh: "tambah Nastar 1" atau "kurangi Bolen jadi 1").\n` +
+          `Atau Kakak juga bisa menyalin & mengirim ulang format pesanan yang baru. 😊`;
+        return sender.sendText(from, replyMsg);
+      } else {
+        return await processWaitingOrder(from, name, text, { state: ST.WAITING_ORDER, data: modifiedData }, aiData, templateData, message);
+      }
     }
     
     return sender.sendText(from, '⌛ Menunggu kiriman foto bukti transfer Kakak ya. Silakan kirim gambar di sini. 🙏\n\n_(Ketik *Batal* untuk membatalkan pesanan atau *Ubah* untuk mengedit)_');
