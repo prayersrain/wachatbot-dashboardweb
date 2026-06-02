@@ -260,7 +260,10 @@ async function autoFinalizeOrder(from, name, data) {
     }
   }
 
-  const { data: newOrder, error } = await db.supabase.from('orders').insert([{
+  let newOrder;
+  let error;
+
+  const orderData = {
     wa_number: from,
     customer_name: data.customerName || name || 'Pelanggan',
     items: data.items,
@@ -272,8 +275,28 @@ async function autoFinalizeOrder(from, name, data) {
     lalamove_quotation_id: quotationId || null,
     notes: finalNotes,
     payment_status: 'pending',
-    order_status: 'waiting_payment'
-  }]).select().single();
+    order_status: 'waiting_payment',
+    updated_at: new Date().toISOString()
+  };
+
+  if (data.orderId) {
+    logger.info(`📝 Mengupdate pesanan lama #${data.orderNumber} (ID: ${data.orderId})...`);
+    const res = await db.supabase.from('orders')
+      .update(orderData)
+      .eq('id', data.orderId)
+      .select()
+      .single();
+    newOrder = res.data;
+    error = res.error;
+  } else {
+    logger.info('📝 Menyimpan pesanan baru ke Supabase...');
+    const res = await db.supabase.from('orders')
+      .insert([orderData])
+      .select()
+      .single();
+    newOrder = res.data;
+    error = res.error;
+  }
 
   if (error) {
     logger.error({ error: error.message, data }, '❌ Gagal menyimpan pesanan ke Supabase');
@@ -793,7 +816,7 @@ async function handleCustomerMessage(from, name, message) {
 
   // Global Cancel Intent
   if (aiData && aiData.intent === 'CANCEL') {
-    if (session?.data?.orderId && state === ST.PAYMENT) {
+    if (session?.data?.orderId) {
       await db.updateOrder(session.data.orderId, { order_status: 'cancelled' });
     }
     await upsertSession(from, ST.IDLE, {
@@ -838,14 +861,8 @@ async function handleCustomerMessage(from, name, message) {
     }
     
     if (isModification) {
-      if (session?.data?.orderId) {
-        await db.updateOrder(session.data.orderId, { order_status: 'cancelled' });
-      }
-      
       const modifiedData = {
         ...session.data,
-        orderId: null,
-        orderNumber: null,
         totalPrice: null,
         quotationId: null
       };
@@ -853,8 +870,8 @@ async function handleCustomerMessage(from, name, message) {
       await upsertSession(from, ST.WAITING_ORDER, modifiedData);
       
       const { text: summary } = buildOrderSummary(session.data.items || [], session.data.deliveryFee, session.data.notes);
-      const replyMsg = `⬅️ Siap Kak, pesanan sebelumnya dibatalkan untuk diubah.\n\n` +
-        `🧾 *Pesanan saat ini:*\n${summary}\n\n` +
+      const replyMsg = `⬅️ Siap Kak, pesanan sebelumnya akan diubah.\n\n` +
+        `🧾 *Pesanan saat ini:* (Order #${session.data.orderNumber})\n${summary}\n\n` +
         `Silakan ketik perubahan Kakak (contoh: "tambah Nastar 1" atau "kurangi Bolen jadi 1").\n` +
         `Atau Kakak juga bisa menyalin & mengirim ulang format pesanan yang baru. 😊`;
         

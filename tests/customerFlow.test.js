@@ -261,12 +261,13 @@ describe('Simplified Customer Flow (4 States)', () => {
 
     await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'tambah Bolen Coklat 1' } });
 
-    // Should cancel old order
-    expect(db.updateOrder).toHaveBeenCalledWith('order-123', { order_status: 'cancelled' });
+    // Should NOT cancel old order
+    expect(db.updateOrder).not.toHaveBeenCalled();
     
-    // Should revert back to WAITING_ORDER and restore items (the logic inside customerFlow handles the modification after reverting)
+    // Should revert back to WAITING_ORDER and restore items (keeping orderId & orderNumber)
     expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
-      orderId: null,
+      orderId: 'order-123',
+      orderNumber: 42,
       items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }] // First reverted, then processed
     }));
   });
@@ -350,17 +351,18 @@ describe('Simplified Customer Flow (4 States)', () => {
 
     await handleCustomerMessage('cust_1', 'Budi', { text: { body: 'ubah' } });
 
-    // Should cancel old order in DB
-    expect(db.updateOrder).toHaveBeenCalledWith('order-123', { order_status: 'cancelled' });
+    // Should NOT cancel old order in DB immediately
+    expect(db.updateOrder).not.toHaveBeenCalled();
     
-    // Should revert back to WAITING_ORDER state and preserve current items
+    // Should revert back to WAITING_ORDER state and preserve current items & orderId
     expect(db.upsertSession).toHaveBeenCalledWith('cust_1', 'WAITING_ORDER', expect.objectContaining({
-      orderId: null,
+      orderId: 'order-123',
+      orderNumber: 42,
       items: [{ name: 'Bolen Coklat', qty: 2, price: 34000 }]
     }));
     
     // Should prompt the user for changes
-    expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('pesanan sebelumnya dibatalkan untuk diubah'));
+    expect(sender.sendText).toHaveBeenCalledWith('cust_1', expect.stringContaining('pesanan sebelumnya akan diubah'));
   });
 
   test('Scenario 19: Pickup dari awal (no Jakarta address, skip region select, ask missing info)', async () => {
