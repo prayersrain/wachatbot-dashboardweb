@@ -329,6 +329,61 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
   if (!data.items) data.items = [];
   if (!data.ambiguousPending) data.ambiguousPending = [];
 
+  // Resolve ambiguous items first
+  let resolvedAny = false;
+  if (data.ambiguousPending.length > 0 && text.trim().length > 0 && !templateData?.isTemplate) {
+    const products = await db.getProducts();
+    const resolvedIndices = [];
+    
+    for (let i = 0; i < data.ambiguousPending.length; i++) {
+      const pending = data.ambiguousPending[i];
+      const isNumberMatch = /^\d+$/.test(text.trim());
+      let isTextMatch = false;
+      
+      if (!isNumberMatch) {
+        isTextMatch = pending.matches.some(m => text.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(text.toLowerCase())) 
+                      || text.toLowerCase().includes(pending.original.toLowerCase())
+                      || pending.original.toLowerCase().includes(text.toLowerCase());
+      }
+      
+      if (isNumberMatch || isTextMatch) {
+        let matchName = text.trim();
+        if (isNumberMatch) {
+          const selectionIdx = parseInt(text.trim()) - 1;
+          if (selectionIdx >= 0 && selectionIdx < pending.matches.length) {
+            matchName = pending.matches[selectionIdx];
+          } else {
+            continue;
+          }
+        }
+        
+        const matchResult = fuzzyMatchProduct(matchName, products);
+        if (matchResult.match) {
+          data.items.push({ name: matchResult.match.name, qty: pending.qty || 1, price: matchResult.match.price });
+          resolvedIndices.push(i);
+          resolvedAny = true;
+          updated = true;
+        }
+      }
+    }
+    
+    if (resolvedAny) {
+      resolvedIndices.sort((a, b) => b - a).forEach(idx => {
+        data.ambiguousPending.splice(idx, 1);
+      });
+      
+      data.items = data.items.filter(i => i.qty > 0);
+      await upsertSession(from, ST.WAITING_ORDER, data);
+      
+      const isComplete = checkCompleteness(data);
+      if (isComplete) {
+        return await autoFinalizeOrder(from, name, data);
+      } else {
+        return await askMissingInfo(from, data);
+      }
+    }
+  }
+
   if (message && message.type === 'location') {
     const lat = message.location.latitude;
     const lng = message.location.longitude;
@@ -512,37 +567,7 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
     }
   }
 
-  // Resolve ambiguous items
-  if (data.ambiguousPending.length > 0 && text.trim().length > 0 && !templateData?.isTemplate && (!aiData || aiData.intent !== 'ORDER')) {
-    const products = await db.getProducts();
-    const resolvedIndices = [];
-    
-    for (let i = 0; i < data.ambiguousPending.length; i++) {
-      const pending = data.ambiguousPending[i];
-      const isMatch = pending.matches.some(m => text.toLowerCase().includes(m.toLowerCase())) || text.toLowerCase().includes(pending.original.toLowerCase()) || /^\d+$/.test(text.trim());
-      
-      if (isMatch) {
-        let matchName = text.trim();
-        if (/^\d+$/.test(text.trim())) {
-          const selectionIdx = parseInt(text.trim()) - 1;
-          if (selectionIdx >= 0 && selectionIdx < pending.matches.length) {
-            matchName = pending.matches[selectionIdx];
-          }
-        }
-        
-        const matchResult = fuzzyMatchProduct(matchName, products);
-        if (matchResult.match) {
-          data.items.push({ name: matchResult.match.name, qty: pending.qty || 1, price: matchResult.match.price });
-          resolvedIndices.push(i);
-          updated = true;
-        }
-      }
-    }
-    
-    resolvedIndices.sort((a, b) => b - a).forEach(idx => {
-      data.ambiguousPending.splice(idx, 1);
-    });
-  }
+
 
   if (updated) {
     data.items = data.items.filter(i => i.qty > 0);
