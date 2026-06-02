@@ -299,4 +299,33 @@ describe('Simplified Customer Flow (4 States)', () => {
       totalPrice: 55000 // 40k + 15k shipping
     }));
   });
+
+  test('Scenario 17: JID/LID phone number resolution from historical order notes', async () => {
+    db.getSession.mockResolvedValueOnce({
+      state: 'REGION_SELECT',
+      data: { customerName: 'ikal', customerPhone: '227745539870884' }
+    });
+
+    db.getLastOrder.mockResolvedValueOnce({
+      customer_name: 'ikal',
+      wa_number: '227745539870884@lid',
+      notes: '(HP: 6285283142289)'
+    });
+
+    aiParseOrder.mockResolvedValueOnce({
+      intent: 'REGION_MATCH',
+      region: 'jakarta',
+      answer: 'Siap Jakarta!'
+    });
+
+    await handleCustomerMessage('227745539870884@lid', 'ikal', { text: { body: 'jakarta' } });
+
+    // Should resolve the phone number and pre-fill in the template message
+    expect(sender.sendText).toHaveBeenCalledWith('227745539870884@lid', expect.stringContaining('No HP: 6285283142289'));
+
+    // Should save the resolved phone number back to the session
+    expect(db.upsertSession).toHaveBeenCalledWith('227745539870884@lid', 'WAITING_ORDER', expect.objectContaining({
+      customerPhone: '6285283142289'
+    }));
+  });
 });

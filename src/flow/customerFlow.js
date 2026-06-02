@@ -142,15 +142,34 @@ async function askMissingInfo(from, data) {
   }
 }
 
+function getDisplayPhone(waNumber, notes) {
+  if (!waNumber) return '';
+  if (waNumber.endsWith('@lid') || waNumber.replace(/\D/g, '').length > 13) {
+    if (notes) {
+      const match = notes.match(/\(HP:\s*([\+\d]+)\)/i);
+      if (match) {
+        return match[1].replace(/[\s-]/g, '');
+      }
+    }
+    return '';
+  }
+  return waNumber.split('@')[0];
+}
+
 async function buildAndSendTemplate(from, data) {
   let prefName = data.customerName || '';
   let prefPhone = data.customerPhone || '';
+  
+  // If the stored phone is actually an internal JID/LID, try to resolve it first
+  if (prefPhone && (prefPhone.endsWith('@lid') || prefPhone.replace(/\D/g, '').length > 13)) {
+    prefPhone = getDisplayPhone(prefPhone, data.notes || '');
+  }
   
   if (!prefName || !prefPhone) {
     const lastOrder = await db.getLastOrder(from, data.customerPhone);
     if (lastOrder) {
       prefName = prefName || lastOrder.customer_name || '';
-      prefPhone = prefPhone || lastOrder.wa_number.split('@')[0] || '';
+      prefPhone = prefPhone || getDisplayPhone(lastOrder.wa_number, lastOrder.notes) || '';
     }
   }
   
@@ -832,7 +851,7 @@ async function handleCustomerMessage(from, name, message) {
       const lastOrder = await db.getLastOrder(from, session?.data?.customerPhone);
       if (lastOrder && lastOrder.customer_name) {
         data.customerName = lastOrder.customer_name;
-        data.customerPhone = lastOrder.wa_number;
+        data.customerPhone = getDisplayPhone(lastOrder.wa_number, lastOrder.notes);
         await upsertSession(from, ST.REGION_SELECT, data);
         return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
       } else {
