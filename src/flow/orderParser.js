@@ -126,4 +126,116 @@ function buildOrderSummary(items, deliveryFee, notes) {
   return { text, itemsTotal };
 }
 
-module.exports = { parseOrderText, formatRupiah, buildOrderSummary };
+/**
+ * Parse template format yang diisi pelanggan.
+ * Mengembalikan object dengan semua field yang terdeteksi.
+ */
+function parseOrderTemplate(text) {
+  if (!text) return { isTemplate: false };
+  const lines = text.split('\n');
+  const result = {
+    customerName: null,
+    items: null,
+    deliveryMethod: null,
+    address: null,
+    phone: null,
+    notes: null,
+    isTemplate: false
+  };
+
+  const keys = [
+    { field: 'customerName', regex: /^(nama|name|nama\s+penerima)\s*[:=]/i },
+    { field: 'items', regex: /^(pesanan|pesnaan|order|pesan|items?|produk)\s*[:=]/i },
+    { field: 'deliveryMethod', regex: /^(pengiriman|kirim\s*[\/\-]\s*ambil|metode|tipe|delivery)\s*[:=]/i },
+    { field: 'address', regex: /^(alamat|address|lokasi|tujuan)\s*[:=]/i },
+    { field: 'phone', regex: /^(no\s*hp|hp|nomor|wa|whatsapp|handphone|telepon|telp)\s*[:=]/i },
+    { field: 'notes', regex: /^(catatan|notes?|pesan\s+tambahan)\s*[:=]/i }
+  ];
+
+  let currentField = null;
+  let matchesCount = 0;
+
+  for (let line of lines) {
+    let trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check if this line starts a new field
+    let foundNewField = false;
+    for (const key of keys) {
+      const match = trimmed.match(key.regex);
+      if (match) {
+        // Find where the colon or equal sign is, and get the rest of the line
+        const colonIndex = trimmed.indexOf(':') !== -1 ? trimmed.indexOf(':') : trimmed.indexOf('=');
+        const val = trimmed.slice(colonIndex + 1).trim();
+        result[key.field] = val;
+        currentField = key.field;
+        foundNewField = true;
+        matchesCount++;
+        break;
+      }
+    }
+
+    if (!foundNewField && currentField) {
+      // Append to the current field (for multiline items or address)
+      if (result[currentField]) {
+        result[currentField] += '\n' + trimmed;
+      } else {
+        result[currentField] = trimmed;
+      }
+    }
+  }
+
+  // Determine if it is a template fill
+  if (matchesCount >= 3) {
+    result.isTemplate = true;
+  }
+
+  // Post-process values (clean up placeholders, default instructions, or dashes)
+  if (result.customerName) {
+    if (/^(contoh|john\s+doe)/i.test(result.customerName)) {
+      result.customerName = null;
+    }
+  }
+  if (result.items) {
+    if (result.items.includes('contoh:') || result.items.includes('(contoh:')) {
+      result.items = null;
+    }
+  }
+  if (result.deliveryMethod) {
+    const dm = result.deliveryMethod.toLowerCase();
+    if (dm.includes('kirim')) {
+      result.deliveryMethod = 'kirim';
+    } else if (dm.includes('ambil') || dm.includes('toko') || dm.includes('pickup')) {
+      result.deliveryMethod = 'pickup';
+    } else {
+      result.deliveryMethod = null;
+    }
+  }
+  if (result.address) {
+    if (result.address.includes('mohon diisi') || result.address.includes('kosongkan bila') || result.address.includes('opsional')) {
+      result.address = null;
+    }
+  }
+  if (result.phone) {
+    if (result.phone.includes('contoh:')) {
+      result.phone = null;
+    }
+  }
+  if (result.notes) {
+    if (result.notes.includes('opsional') || result.notes.trim() === '-') {
+      result.notes = null;
+    }
+  }
+
+  // Clean empty strings / single dashes
+  for (const field of ['customerName', 'items', 'address', 'phone', 'notes']) {
+    if (result[field]) {
+      const cleaned = result[field].replace(/^\s*[-—]\s*$/, '').trim();
+      result[field] = cleaned || null;
+    }
+  }
+
+  return result;
+}
+
+module.exports = { parseOrderText, formatRupiah, buildOrderSummary, parseOrderTemplate };

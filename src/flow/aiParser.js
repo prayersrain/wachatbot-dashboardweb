@@ -172,17 +172,13 @@ async function callGeminiAI(
     });
     holidayContext = `\n- JADWAL LIBUR TOKO (TUTUP & TIDAK ADA PENGIRIMAN): ${formattedHolidays.join(", ")}. Jika pelanggan bertanya tentang pengiriman pada tanggal ini atau komplain mengapa pengirimannya bukan besok, jelaskan dengan ramah bahwa toko kami memang sedang LIBUR pada tanggal tersebut.`;
   }
-
-  // Build state context for AI
   let stateContext = "";
   if (state === "REJECTED") {
     stateContext = `\nKONTEKS PERCAKAPAN:\n- Pelanggan ini dari LUAR JAKARTA.\n- TUGAS ANDA: Sampaikan dengan ramah bahwa pengiriman kami baru mencakup Jakarta, TETAPI mereka MASIH BISA memesan produk melalui Shopee di link berikut: ${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}. Jangan tolak secara mentah-mentah, langsung arahkan pesanan ke Shopee saja.\n`;
-  } else if (
-    state === "CONFIRM" ||
-    state === "LOCATION" ||
-    state === "PAYMENT"
-  ) {
-    stateContext = `\nKONTEKS PERCAKAPAN:\n- Pelanggan SUDAH SELESAI memilih pesanan dan sedang berada di tahap penyelesaian (konfirmasi/shareloc/bayar).\n- PENTING: JANGAN menambahkan pesanan baru (JANGAN set intent "ORDER") kecuali pelanggan secara TEGAS menggunakan kata 'tambah', 'jadi [angka]', dll. Jika mereka hanya menyebutkan pesanan untuk memastikan, set intent "FAQ" atau "QUERY".\n`;
+  } else if (state === "PAYMENT") {
+    stateContext = `\nKONTEKS PERCAKAPAN:\n- Pelanggan sedang berada di tahap pembayaran (PAYMENT).\n- PENTING: JANGAN menambahkan pesanan baru (JANGAN set intent "ORDER") kecuali pelanggan secara TEGAS menggunakan kata 'tambah', 'kurang', 'ubah', 'ganti', dll. Jika mereka ingin memodifikasi pesanan di state PAYMENT, set intent "ORDER" dengan action yang sesuai ("add", "update", "remove") agar sistem memproses modifikasinya.\n`;
+  } else if (state === "WAITING_ORDER") {
+    stateContext = `\nKONTEKS PERCAKAPAN:\n- Pelanggan sedang dalam proses pemesanan (WAITING_ORDER).\n- Anda bertugas melengkapi data pesanan mereka. Ekstrak produk, nama, nomor HP, alamat, dan metode pengiriman jika ada.\n`;
   }
 
   let contextAddon = "";
@@ -193,6 +189,7 @@ async function callGeminiAI(
     contextAddon += activeOrderContext;
   }
 
+  let historyAddon = "";
   if (history && history.length > 0) {
     historyAddon = `\nRIWAYAT PERCAKAPAN TERAKHIR:\n${history.map((h) => `[${h.role.toUpperCase()}]: ${h.content}`).join("\n")}\n`;
   }
@@ -234,16 +231,16 @@ ATURAN BISNIS & FAQ (WAJIB DITAATI 100%):
 - Shopee: Jika ditanya tentang Shopee/Toko Online atau jika pengiriman ke luar Jakarta, WAJIB arahkan untuk order ke Shopee dan berikan link ini: ${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}
 ${faqList}
 ATURAN KLASIFIKASI INTENT:
-1. Jika pelanggan menyebutkan nama kota, kecamatan, provinsi, atau daerah pengiriman -> set intent "REGION_MATCH" dan tentukan apakah daerah tersebut masuk area Jakarta (DKI Jakarta) atau luar Jakarta. Isi field "region" dengan "jakarta" atau "luar_jakarta". JIKA "luar_jakarta", maka WAJIB isi "answer" dengan pemberitahuan bahwa mereka tetap MASIH BISA MEMESAN melalui Shopee dan berikan link Shopee.
+1. Jika pelanggan menyebutkan nama kota, kecamatan, provinsi, atau daerah pengiriman -> set intent "REGION_MATCH" dan tentukan apakah daerah tersebut masuk area Jakarta (DKI Jakarta) atau luar Jakarta. Isi field "region" dengan "jakarta" or "luar_jakarta". JIKA "luar_jakarta", maka WAJIB isi "answer" dengan pemberitahuan bahwa mereka tetap MASIH BISA MEMESAN melalui Shopee dan berikan link Shopee.
 2. Jika pelanggan menanyakan daftar menu, harga, katalog -> set intent "SHOW_MENU" (kosongkan answer).
 3. Jika isi pesan murni/mayoritas menanyakan FAQ -> set intent "FAQ" dan JAWAB SECARA LENGKAP & SOPAN.
 4. Jika pelanggan komplain atau merevisi pesanan yang sudah dibayar -> set intent "ADMIN" (kosongkan answer).
 5. Jika pelanggan memiliki PESANAN AKTIF dan hanya menanyakan status -> set intent "FAQ" atau "ADMIN". JANGAN set "ORDER".
 6. Jika pelanggan menjawab singkat (misal: "oke", "ok", "sip", "sudah", "ya") -> JIKA konteksnya sedang ditanya konfirmasi, set intent "CONFIRM". Jika bukan, set intent "ACKNOWLEDGE".
 7. Jika pelanggan mengetik "mulai" -> set intent "ONBOARD_START".
-8. Jika pelanggan menyebutkan nama makanan untuk pesanan baru, ekstrak ke array "items" dengan intent "ORDER".
+8. Jika pelanggan menyebutkan nama makanan untuk pesanan baru atau template pesanan, ekstrak ke array "items" dengan intent "ORDER". Jika mereka mengisi template format, gunakan intent "TEMPLATE_FILL".
 
-ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER):
+ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER atau TEMPLATE_FILL):
 - Bolen/Roll Cake/Nona Manis: 10 pcs per kotak. Roti (termasuk Roti Sisir): 4 pcs per bungkus/kotak. Jangan pernah sebut isinya 5!
 - KONVERSI SATUAN PENTING: Harga kami adalah PER KOTAK/BOX. Jika pelanggan memesan dengan sebutan "biji" / "pcs" / "buah", Anda WAJIB mengkonversinya ke jumlah box!
   Contoh: "nona manis 10 biji" -> 1 box (qty: 1).
@@ -253,7 +250,7 @@ ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER):
 - JIKA Anda harus memberikan penjelasan panjang mengenai daftar pilihan varian/menu, WAJIB gunakan format daftar ke bawah (bullet points atau nomor 1, 2, 3). JANGAN menggunakan format paragraf panjang yang menyambung agar pelanggan mudah membacanya.
 - Gunakan action: "remove" untuk pembatalan item.
 - Gunakan action: "update" jika pelanggan bermaksud MENGUBAH / MENGGANTI jumlah pesanan yang sudah ada di keranjang menjadi jumlah baru, ATAU jika mereka mengulangi pesanan mereka (re-listing) untuk mengoreksi kesalahan (contoh: "jadinya nastar 1 aja", "kue soes 1, sisir keju 1 ya", atau menyebut daftar "1. kue soes 1. sisir keju").
-- Gunakan action: "add" HANYA jika pelanggan dengan tegas menyatakan ingin MENAMBAH pesanan (contoh: "tambah nastar 1"). Jika tidak ada kata tambah, dan pelanggan berada di tahap konfirmasi/lokasi, asumsikan mereka sedang mengoreksi pesanan (gunakan "update").
+- Gunakan action: "add" HANYA jika pelanggan dengan tegas menyatakan ingin MENAMBAH pesanan (contoh: "tambah nastar 1"). Jika tidak ada kata tambah, dan pelanggan berada di tahap konfirmasi/lokasi/pembayaran, asumsikan mereka sedang mengoreksi pesanan (gunakan "update").
 - KHUSUS intent CANCEL: JIKA pelanggan membatalkan KARENA ONGKIR MAHAL, berikan alternatif link Shopee (${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}) untuk ongkir yang lebih hemat.
 
 CONTOH JSON JAWABAN:
@@ -261,12 +258,13 @@ CONTOH JSON JAWABAN:
 
 FORMAT JSON SAJA:
 {
-  "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|GREETING|THANKS|FAQ|SHOW_MENU|OTHER|ACKNOWLEDGE|ADMIN|ONBOARD_START|REGION_MATCH",
+  "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|GREETING|THANKS|FAQ|SHOW_MENU|OTHER|ACKNOWLEDGE|ADMIN|ONBOARD_START|REGION_MATCH|TEMPLATE_FILL",
   "items": [{"name": "nama_roti", "qty": 2, "action": "add/update/remove"}],
   "customerName": "HANYA NAMA ORANG pelanggan/penerima (contoh: Budi). JANGAN masukkan alamat, nomor HP, atau kata lain. Jika tidak ada, null.",
   "customerPhone": "nomor HP JIKA pelanggan mengoreksi/memberikan nomor HP (contoh: 0812345). Jika tidak ada, null.",
   "notes": "catatan pesanan jika ada",
   "address": "HANYA teks ALAMAT PENGIRIMAN jika diketik eksplisit. JANGAN masukkan nama orang. Jika tidak ada, null.",
+  "deliveryMethod": "kirim|pickup|null",
   "region": "jakarta|luar_jakarta",
   "answer": "WAJIB ISI untuk FAQ/GREETING/THANKS/OTHER/REGION_MATCH."
 }
