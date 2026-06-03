@@ -203,22 +203,36 @@ function startPolling() {
              continue;
           }
 
+          // Ekstrak nomor HP asli dari catatan jika ada, jika tidak fallback ke wa_number
+          let realPhone = newOrder.wa_number;
+          if (newOrder.notes) {
+            const hpMatch = newOrder.notes.match(/\(HP:\s*([\d\+\-\s]+)\)/);
+            if (hpMatch && hpMatch[1]) {
+              realPhone = hpMatch[1].trim();
+            }
+          }
+
           const result = await lalamove.createOrder(
             q.quotationId, 
             q.stops, 
             newOrder.customer_name || 'Pelanggan', 
-            newOrder.wa_number, 
+            realPhone, 
             `Yoyo Bakery #${newOrder.order_number}`
           );
 
           if (result && result.orderId) {
+            // Suntikkan Priority Fee (Subsidi Toko) agar driver cepat ambil pesanan
+            const PRIORITY_FEE_AMOUNT = 5000;
+            const feeSuccess = await lalamove.addPriorityFee(result.orderId, PRIORITY_FEE_AMOUNT);
+            const feeMsg = feeSuccess ? ` (Tip Rp${PRIORITY_FEE_AMOUNT} ditambahkan)` : '';
+
             await db.updateOrder(newOrder.id, {
               lalamove_order_id: result.orderId,
               lalamove_share_link: result.shareLink,
               lalamove_status: result.status,
             });
             await sender.sendText(newOrder.wa_number, `🚚 *Pesanan #${newOrder.order_number} sedang dalam perjalanan!*\n\nLacak kurir Lalamove di sini:\n${result.shareLink}\n\nSilakan tunggu di lokasi ya Kak. Terima kasih! ❤️`);
-            await sender.sendText(config.adminPhone, `📢 *LALAMOVE BERHASIL*\n\nPesanan #${newOrder.order_number} telah diserahkan ke driver. Link tracking:\n${result.shareLink}`);
+            await sender.sendText(config.adminPhone, `📢 *LALAMOVE BERHASIL*\n\nPesanan #${newOrder.order_number} telah diserahkan ke driver${feeMsg}. Link tracking:\n${result.shareLink}`);
           } else {
             await sender.sendText(config.adminPhone, `❌ *LALAMOVE GAGAL*\n\nGagal memanggil driver untuk pesanan #${newOrder.order_number}. Silakan panggil manual di aplikasi Lalamove.`);
             await db.updateOrder(newOrder.id, { lalamove_order_id: 'MANUAL_REQUIRED', lalamove_status: 'FAILED' });

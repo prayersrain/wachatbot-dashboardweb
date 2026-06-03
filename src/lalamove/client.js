@@ -172,4 +172,31 @@ async function cancelOrder(orderId) {
   }
 }
 
-module.exports = { getQuotation, createOrder, getOrderDetails, cancelOrder };
+/**
+ * Add priority fee to an existing Lalamove order
+ */
+async function addPriorityFee(orderId, amount) {
+  const path = `/v3/orders/${orderId}/priority-fee`;
+  const body = {
+    data: {
+      priorityFee: {
+        amount: amount.toString(),
+        currency: 'IDR'
+      }
+    }
+  };
+
+  const bodyStr = JSON.stringify(body);
+  const headers = getAuthHeaders('POST', path, bodyStr);
+
+  try {
+    await axios.post(`${BASE_URL}${path}`, body, { headers });
+    logger.info({ orderId, amount }, '✅ Berhasil menambahkan priority fee Lalamove');
+    return true;
+  } catch (err) {
+    logger.error({ error: err.response?.data || err.message, orderId }, '❌ Gagal menambahkan priority fee Lalamove');
+    return false;
+  }
+}
+
+module.exports = { getQuotation, createOrder, getOrderDetails, cancelOrder, addPriorityFee };
