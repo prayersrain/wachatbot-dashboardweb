@@ -179,10 +179,7 @@ async function addPriorityFee(orderId, amount) {
   const path = `/v3/orders/${orderId}/priority-fee`;
   const body = {
     data: {
-      priorityFee: {
-        amount: amount.toString(),
-        currency: 'IDR'
-      }
+      priorityFee: amount.toString()
     }
   };
 
