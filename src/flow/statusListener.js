@@ -224,7 +224,9 @@ function startPolling() {
             // Suntikkan Priority Fee dari sisa markup ongkir
             const baseLalaFee = parseFloat(q.total) || 0;
             const customerPaidFee = parseFloat(newOrder.delivery_fee) || 0;
-            const priorityFeeAmount = Math.floor(customerPaidFee - baseLalaFee);
+            // Bulatkan ke bawah ke kelipatan 1000 terdekat (Lalamove API sering crash jika angka tidak bulat)
+            const rawDifference = customerPaidFee - baseLalaFee;
+            const priorityFeeAmount = Math.floor(rawDifference / 1000) * 1000;
             
             let feeMsg = '';
             if (priorityFeeAmount > 0) {
