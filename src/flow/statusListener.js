@@ -221,10 +221,16 @@ function startPolling() {
           );
 
           if (result && result.orderId) {
-            // Suntikkan Priority Fee (Subsidi Toko) agar driver cepat ambil pesanan
-            const PRIORITY_FEE_AMOUNT = 5000;
-            const feeSuccess = await lalamove.addPriorityFee(result.orderId, PRIORITY_FEE_AMOUNT);
-            const feeMsg = feeSuccess ? ` (Tip Rp${PRIORITY_FEE_AMOUNT} ditambahkan)` : '';
+            // Suntikkan Priority Fee dari sisa markup ongkir
+            const baseLalaFee = parseFloat(q.total) || 0;
+            const customerPaidFee = parseFloat(newOrder.delivery_fee) || 0;
+            const priorityFeeAmount = Math.floor(customerPaidFee - baseLalaFee);
+            
+            let feeMsg = '';
+            if (priorityFeeAmount > 0) {
+              const feeSuccess = await lalamove.addPriorityFee(result.orderId, priorityFeeAmount);
+              if (feeSuccess) feeMsg = ` (Tip Rp${priorityFeeAmount} ditambahkan dari sisa markup)`;
+            }
 
             await db.updateOrder(newOrder.id, {
               lalamove_order_id: result.orderId,
