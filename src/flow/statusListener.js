@@ -180,11 +180,13 @@ function startPolling() {
           logger.info(`🚚 [POLLING] Menjalankan otomatisasi KIRIM (Lalamove) untuk #${newOrder.order_number}`);
           
           if (!newOrder.lalamove_quotation_id) {
-             await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove otomatis untuk #${newOrder.order_number} karena quotation Lalamove tidak ditemukan di database.`);
+             await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove otomatis untuk #${newOrder.order_number} karena quotation Lalamove tidak ditemukan di database. Silakan panggil kurir manual.`);
+             await db.updateOrder(newOrder.id, { lalamove_order_id: 'MANUAL_REQUIRED', lalamove_status: 'FAILED' });
              continue;
           }
           if (!newOrder.customer_lat || !newOrder.customer_lng) {
-            await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove untuk #${newOrder.order_number} karena koordinat lokasi customer kosong.`);
+            await sender.sendText(config.adminPhone, `⚠️ Gagal panggil Lalamove untuk #${newOrder.order_number} karena koordinat lokasi customer kosong. Silakan panggil kurir manual.`);
+            await db.updateOrder(newOrder.id, { lalamove_order_id: 'MANUAL_REQUIRED', lalamove_status: 'FAILED' });
             continue;
           }
 
@@ -197,6 +199,7 @@ function startPolling() {
           const q = await lalamove.getQuotation(newOrder.customer_lat, newOrder.customer_lng, newOrder.customer_address);
           if (!q) {
              logger.error({ orderId: newOrder.id }, '❌ Gagal ambil quotation ulang saat polling Lalamove');
+             await db.updateOrder(newOrder.id, { lalamove_order_id: 'MANUAL_REQUIRED', lalamove_status: 'FAILED' });
              continue;
           }
 
@@ -218,6 +221,7 @@ function startPolling() {
             await sender.sendText(config.adminPhone, `📢 *LALAMOVE BERHASIL*\n\nPesanan #${newOrder.order_number} telah diserahkan ke driver. Link tracking:\n${result.shareLink}`);
           } else {
             await sender.sendText(config.adminPhone, `❌ *LALAMOVE GAGAL*\n\nGagal memanggil driver untuk pesanan #${newOrder.order_number}. Silakan panggil manual di aplikasi Lalamove.`);
+            await db.updateOrder(newOrder.id, { lalamove_order_id: 'MANUAL_REQUIRED', lalamove_status: 'FAILED' });
           }
         }
       }
