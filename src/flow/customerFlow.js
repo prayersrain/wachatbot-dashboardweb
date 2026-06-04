@@ -17,7 +17,8 @@ const ST = {
   WAITING_ORDER: 'WAITING_ORDER', // Unified order collection state
   PAYMENT: 'PAYMENT',
   REJECTED: 'REJECTED',
-  ADMIN_TAKEOVER: 'ADMIN_TAKEOVER'
+  ADMIN_TAKEOVER: 'ADMIN_TAKEOVER',
+  RETURNING_CUSTOMER: 'RETURNING_CUSTOMER'
 };
 
 const PICKUP_KEYWORDS = [
@@ -29,8 +30,27 @@ const PICKUP_KEYWORDS = [
 const MENU_PAGE1 = path.join(__dirname, '..', 'assets', 'menu-page1.jpg');
 const MENU_PAGE2 = path.join(__dirname, '..', 'assets', 'menu-page2.jpg');
 
+const ALIASES = {
+  'nonis': 'nona manis',
+  'bolcok': 'bolen coklat',
+  'bolju': 'bolen keju',
+  'boljug': 'bolen keju',
+  'ns': 'nastar',
+  'ks': 'kastengel'
+};
+
 function fuzzyMatchProduct(inputName, products) {
-  const inputLower = inputName.toLowerCase().trim();
+  let inputLower = inputName.toLowerCase().trim();
+  
+  if (ALIASES[inputLower]) {
+    inputLower = ALIASES[inputLower];
+  } else {
+    Object.keys(ALIASES).forEach(alias => {
+      const regex = new RegExp(`\\b${alias}\\b`, 'g');
+      inputLower = inputLower.replace(regex, ALIASES[alias]);
+    });
+  }
+
   let p = products.find(prod => prod.name.toLowerCase() === inputLower);
   if (p) return { match: p, ambiguous: null };
 
@@ -958,25 +978,73 @@ async function handleCustomerMessage(from, name, message) {
       if (aiData && aiData.items && aiData.items.length > 0) {
         const products = await db.getProducts();
         const parsedItems = [];
+        data.ambiguousPending = data.ambiguousPending || [];
         for (const item of aiData.items) {
           const matchResult = fuzzyMatchProduct(item.name, products);
           if (matchResult.match) {
             parsedItems.push({ name: matchResult.match.name, qty: item.qty || 1, price: matchResult.match.price });
           } else {
-            parsedItems.push({ name: item.name, qty: item.qty || 1, price: 0 });
+            data.ambiguousPending.push({ 
+              original: item.name, 
+              matches: matchResult.ambiguous || [], 
+              qty: item.qty || 1 
+            });
           }
         }
         if (parsedItems.length > 0) {
           data.items = parsedItems;
+        } else {
+          data.items = [];
         }
       }
       
-      await upsertSession(from, ST.REGION_SELECT, data);
-      if (lastOrder && lastOrder.customer_name) {
-        return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+      const activeOrders = await db.getActiveOrdersByPhone(from, session?.data?.customerPhone);
+      const hasActive = activeOrders && activeOrders.length > 0;
+
+      if (hasActive) {
+        await upsertSession(from, ST.RETURNING_CUSTOMER, data);
+        return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Kakak memiliki pesanan yang sedang diproses lho. 😊\n\nKetik *1* atau *Cek* untuk melihat status pesanan Kakak.\nKetik *2* atau *Baru* untuk membuat pesanan baru.`);
       } else {
-        return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+        await upsertSession(from, ST.REGION_SELECT, data);
+        if (lastOrder && lastOrder.customer_name) {
+          return sender.sendText(from, `Halo Kak ${lastOrder.customer_name}! Selamat datang kembali di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+        } else {
+          return sender.sendText(from, `Halo Kak! Selamat datang di *Yoyo Bakery*! 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+        }
       }
+    }
+  }
+
+  // --- RETURNING_CUSTOMER state ---
+  if (state === ST.RETURNING_CUSTOMER) {
+    const isCheck = t === '1' || t === '1.' || t.includes('cek') || t.includes('satu') || t.includes('status');
+    const isNew = t === '2' || t === '2.' || t.includes('baru') || t.includes('dua') || t.includes('pesan');
+    
+    if (isCheck) {
+      const activeOrders = await db.getActiveOrdersByPhone(from, session?.data?.customerPhone);
+      if (activeOrders && activeOrders.length > 0) {
+        let msg = `🧾 *Status Pesanan Aktif Kakak:*\n\n`;
+        activeOrders.forEach(ord => {
+          let statusText = ord.order_status;
+          if (statusText === 'waiting_payment') statusText = '⏳ Menunggu Pembayaran';
+          else if (statusText === 'confirmed') statusText = '✅ Dikonfirmasi / Lunas';
+          else if (statusText === 'packing') statusText = '📦 Sedang Diproses (Packing)';
+          else if (statusText === 'shipping') statusText = '🚚 Sedang Dikirim';
+          msg += `- *Order #${ord.order_number}*\nStatus: ${statusText}\nTotal: Rp${Number(ord.total_price).toLocaleString('id-ID')}\n\n`;
+        });
+        msg += `Terima kasih! Jika butuh bantuan lebih lanjut, ketik *Admin* ya Kak. 😊`;
+        
+        await upsertSession(from, ST.IDLE, {
+          customerPhone: session?.data?.customerPhone || '',
+          customerName: session?.data?.customerName || ''
+        });
+        return sender.sendText(from, msg);
+      }
+    } else if (isNew) {
+      await upsertSession(from, ST.REGION_SELECT, data);
+      return sender.sendText(from, `Siap Kak! Mari kita buat pesanan baru. 🍞\n\n🌍 Boleh tau Kakak berada di daerah/kota mana ya? Sebut saja nama wilayahnya Kak. 😊`);
+    } else {
+      return sender.sendText(from, `Maaf Kak, saya kurang paham. 🙏\n\nKetik *1* atau *Cek* untuk melacak status pesanan.\nKetik *2* atau *Baru* untuk membuat pesanan baru.`);
     }
   }
 

@@ -46,7 +46,7 @@ const STATUS_CONFIG = {
   cancelled: { label: 'Batal', color: '#EF4444', icon: XCircle }
 };
 
-const ORDER_STATUSES = ['all', 'waiting_payment', 'confirmed', 'packing', 'shipping', 'completed', 'cancelled'];
+const ORDER_STATUSES = ['all', 'waiting_payment', 'confirmed', 'packing', 'shipping', 'completed'];
 
 const DATE_FILTERS = [
   { key: 'all', label: 'Semua' },
@@ -110,6 +110,7 @@ export default function Orders() {
       const dateStart = getDateRange();
       if (dateStart) countQuery = countQuery.gte('created_at', dateStart);
       if (activeFilter !== 'all') countQuery = countQuery.eq('order_status', activeFilter);
+      else countQuery = countQuery.neq('order_status', 'cancelled');
       
       const { count } = await countQuery;
       setTotalCount(count || 0);
@@ -120,6 +121,7 @@ export default function Orders() {
       let dataQuery = supabase.from('orders').select('*').order('created_at', { ascending: false }).range(from, to);
       if (dateStart) dataQuery = dataQuery.gte('created_at', dateStart);
       if (activeFilter !== 'all') dataQuery = dataQuery.eq('order_status', activeFilter);
+      else dataQuery = dataQuery.neq('order_status', 'cancelled');
 
       const { data, error } = await dataQuery;
       if (error) throw error;
