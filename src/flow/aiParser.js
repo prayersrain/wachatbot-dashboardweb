@@ -250,8 +250,9 @@ ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER atau TEMPLATE_FI
   JANGAN PERNAH mengisi qty: 10 jika maksud pelanggan adalah 10 biji (1 box)!
 - JIKA Anda harus memberikan penjelasan panjang mengenai daftar pilihan varian/menu, WAJIB gunakan format daftar ke bawah (bullet points atau nomor 1, 2, 3). JANGAN menggunakan format paragraf panjang yang menyambung agar pelanggan mudah membacanya.
 - Gunakan action: "remove" untuk pembatalan/pengurangan suatu item barang tertentu (misal: "gak jadi pesen nastar"). JANGAN gunakan intent CANCEL jika pelanggan hanya ingin mengurangi/menghapus sebagian barang.
-- Gunakan action: "update" jika pelanggan bermaksud MENGUBAH / MENGGANTI jumlah pesanan yang sudah ada di keranjang menjadi jumlah baru, ATAU jika mereka mengulangi pesanan mereka (re-listing) untuk mengoreksi kesalahan (contoh: "jadinya nastar 1 aja", "kue soes 1, sisir keju 1 ya", atau menyebut daftar "1. kue soes 1. sisir keju").
-- Gunakan action: "add" HANYA jika pelanggan dengan tegas menyatakan ingin MENAMBAH pesanan (contoh: "tambah nastar 1"). Jika tidak ada kata tambah, dan pelanggan berada di tahap konfirmasi/lokasi/pembayaran, asumsikan mereka sedang mengoreksi pesanan (gunakan "update").
+- Gunakan action: "update" jika pelanggan bermaksud MENGUBAH / MENGGANTI jumlah pesanan yang sudah ada di keranjang menjadi jumlah baru.
+- PENTING: Gunakan action: "replace_cart" JIKA pelanggan menyebutkan ulang KESELURUHAN daftar pesanan mereka (misal: "jadinya saya pesen nastar 1 dan kue soes 1 ya" atau "kirim ke sudirman, pesanan saya nastar 1"). Ini akan membuat sistem menimpa (overwrite) keranjang lama dengan keranjang baru yang Anda berikan agar barang tidak dobel.
+- Gunakan action: "add" HANYA jika pelanggan dengan tegas menyatakan ingin MENAMBAH pesanan (contoh: "tambah nastar 1"). Jika tidak ada kata tambah, dan pelanggan hanya mengulangi pesanan mereka, asumsikan mereka sedang mengoreksi pesanan (gunakan "replace_cart").
 - KHUSUS intent CANCEL: Gunakan intent ini HANYA jika pelanggan menyatakan ingin membatalkan KESELURUHAN pesanan secara total. JIKA pelanggan membatalkan KARENA ONGKIR MAHAL, berikan alternatif link Shopee (${config.shopeeUrl || "https://shopee.co.id/yoyobakery"}) untuk ongkir yang lebih hemat.
 
 CONTOH JSON JAWABAN:
@@ -260,7 +261,7 @@ CONTOH JSON JAWABAN:
 FORMAT JSON SAJA:
 {
   "intent": "ORDER|CONFIRM|CANCEL|BACK|QUERY|GREETING|THANKS|FAQ|SHOW_MENU|OTHER|ACKNOWLEDGE|ADMIN|ONBOARD_START|REGION_MATCH|TEMPLATE_FILL",
-  "items": [{"name": "nama_roti", "qty": 2, "action": "add/update/remove"}],
+  "items": [{"name": "nama_roti", "qty": 2, "action": "add/update/remove/replace_cart"}],
   "customerName": "HANYA NAMA ORANG pelanggan/penerima (contoh: Budi). JANGAN masukkan alamat, nomor HP, atau kata lain. Jika tidak ada, null.",
   "customerPhone": "nomor HP JIKA pelanggan mengoreksi/memberikan nomor HP (contoh: 0812345). Jika tidak ada, null.",
   "notes": "catatan pesanan jika ada",

@@ -119,7 +119,7 @@ function checkCompleteness(data) {
   if (!data.customerPhone || data.customerPhone.trim().length === 0) return false;
   if (!data.deliveryMethod) return false;
   
-  if (data.deliveryMethod === 'kirim') {
+  if ((data.deliveryMethod || '').toLowerCase() === 'kirim') {
     if (!data.customerAddress || data.customerAddress.trim().length === 0) return false;
   }
   
@@ -162,13 +162,16 @@ async function askMissingInfo(from, data) {
     return sender.sendText(from, '🚚 Pesanannya mau dikirim atau diambil di toko (pickup) Kak?');
   }
 
-  if (data.deliveryMethod === 'kirim' && !hasAddress) {
+  const dm = (data.deliveryMethod || '').toLowerCase();
+  if (dm === 'kirim' && !hasAddress) {
     return sender.sendText(from, '📍 Silakan kirim alamat lengkap pengiriman Kakak, ATAU kirim Lokasi/Shareloc WhatsApp ya Kak.');
   }
 
   if (!hasName || !hasPhone) {
     return sender.sendText(from, '👤 Boleh minta nama & nomor HP penerima?\n\n_Contoh: Budi, 081234567890_');
   }
+
+  return sender.sendText(from, '⚠️ Ada informasi pesanan yang belum lengkap Kak. Mohon lengkapi detail pesanan Kakak.');
 }
 
 function getDisplayPhone(waNumber, notes) {
@@ -244,7 +247,7 @@ async function autoFinalizeOrder(from, name, data) {
   let addr = data.customerAddress;
   let quotationId = data.quotationId;
 
-  if (data.deliveryMethod === 'kirim') {
+  if ((data.deliveryMethod || '').toLowerCase() === 'kirim') {
     if (!lat || !lng) {
       logger.info(`📍 Geocoding alamat: ${addr}...`);
       const geo = await geocodeAddress(addr);
@@ -568,8 +571,16 @@ async function processWaitingOrder(from, name, text, session, aiData, templateDa
     if (aiData.intent === 'ORDER' && aiData.items && aiData.items.length > 0) {
       const products = await db.getProducts();
       
+      const shouldReplace = aiData.items.some(i => i.action === 'replace_cart');
+      if (shouldReplace) {
+        data.items = [];
+        data.ambiguousPending = [];
+        updated = true;
+      }
+
       aiData.items.forEach(newItem => {
-        const action = newItem.action || 'add';
+        let action = newItem.action || 'add';
+        if (action === 'replace_cart') action = 'add';
         
         if (action === 'remove') {
           const idx = data.items.findIndex(e => e.name.toLowerCase().includes(newItem.name.toLowerCase()));
@@ -833,6 +844,14 @@ async function handleCustomerMessage(from, name, message) {
     if (!session.data.notes?.includes('(Pickup)')) {
       session.data.notes = session.data.notes ? session.data.notes + ' (Pickup)' : '(Pickup)';
     }
+  }
+
+  // Global Delivery Detection
+  const KIRIM_KEYWORDS = ['kirim', 'dikirim', 'antar', 'diantar'];
+  const isKirimGlobal = KIRIM_KEYWORDS.some(k => t === k || t.includes(`mau ${k}`) || t.includes(`tolong ${k}`) || t.includes(`${k} instan`) || t.includes(`${k} aja`) || t.includes(`${k} ya`));
+  if (isKirimGlobal && session && session.data) {
+    session.data.deliveryMethod = 'kirim';
+    session.data.isPickup = false;
   }
 
   // Smart Interrupt
