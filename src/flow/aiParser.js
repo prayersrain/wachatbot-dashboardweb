@@ -248,6 +248,7 @@ ATURAN EKSTRAKSI ORDER & PENYEBUTAN PRODUK (Jika intent = ORDER atau TEMPLATE_FI
   Contoh: "bolen lilit 20 pcs" -> 2 box (qty: 2).
   Contoh: "roti sisir 4 buah" -> 1 box (qty: 1).
   JANGAN PERNAH mengisi qty: 10 jika maksud pelanggan adalah 10 biji (1 box)!
+- Roti Sisir Mix: JIKA pelanggan memesan varian "mix" atau "campur" untuk Roti Sisir (misal: "Roti Sisir Mix", "Sisir Campur", "Sisir Mix Coklat dan Keju"), Anda WAJIB memetakannya ke nama produk "Roti Sisir Mix". JANGAN PERNAH memecahnya menjadi dua produk "Full Coklat" dan "Full Keju", karena harganya akan dobel.
 - JIKA Anda harus memberikan penjelasan panjang mengenai daftar pilihan varian/menu, WAJIB gunakan format daftar ke bawah (bullet points atau nomor 1, 2, 3). JANGAN menggunakan format paragraf panjang yang menyambung agar pelanggan mudah membacanya.
 - Gunakan action: "remove" untuk pembatalan/pengurangan suatu item barang tertentu (misal: "gak jadi pesen nastar"). JANGAN gunakan intent CANCEL jika pelanggan hanya ingin mengurangi/menghapus sebagian barang.
 - Gunakan action: "update" jika pelanggan bermaksud MENGUBAH / MENGGANTI jumlah pesanan yang sudah ada di keranjang menjadi jumlah baru.

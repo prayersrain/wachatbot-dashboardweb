@@ -197,8 +197,11 @@ function parseOrderTemplate(text) {
     }
   }
   if (result.items) {
-    if (result.items.includes('contoh:') || result.items.includes('(contoh:')) {
+    if (result.items.trim() === '(contoh: Nastar Classic 2, Bolen Coklat 1)') {
       result.items = null;
+    } else {
+      result.items = result.items.replace(/\(contoh:[^)]+\)/gi, '').replace(/contoh:/gi, '').trim();
+      if (!result.items) result.items = null;
     }
   }
   if (result.deliveryMethod) {

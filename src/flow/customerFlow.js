@@ -854,6 +854,18 @@ async function handleCustomerMessage(from, name, message) {
     session.data.isPickup = false;
   }
 
+  // Save AI Data extraction before Smart Interrupt
+  if (aiData && session && session.data) {
+    if (aiData.customerName) session.data.customerName = aiData.customerName;
+    if (aiData.customerPhone) session.data.customerPhone = aiData.customerPhone.replace(/[\s-]/g, '').replace(/^0/, '62').replace(/^\+/, '');
+    if (aiData.address) session.data.customerAddress = aiData.address;
+    if (aiData.deliveryMethod) {
+      session.data.deliveryMethod = aiData.deliveryMethod;
+      session.data.isPickup = aiData.deliveryMethod === 'pickup';
+      if (session.data.isPickup) session.data.deliveryFee = 0;
+    }
+  }
+
   // Smart Interrupt
   if (aiData && ['FAQ', 'QUESTION', 'THANKS', 'SHOW_MENU', 'OTHER', 'GREETING', 'ACKNOWLEDGE', 'ADMIN'].includes(aiData.intent)) {
     const activeOrdersCheck = await db.getActiveOrdersByPhone(from, session?.data?.customerPhone);
