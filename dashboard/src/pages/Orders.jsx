@@ -204,19 +204,33 @@ export default function Orders() {
   }, [selectedOrder]);
 
   const updateStatus = async (orderId, newStatus) => {
+    let updateData = { order_status: newStatus };
+    if (newStatus === 'retry_lalamove') {
+      updateData = { 
+        lalamove_order_id: null, 
+        lalamove_status: null 
+      };
+    }
+
     const { error } = await supabase
       .from('orders')
-      .update({ order_status: newStatus })
+      .update(updateData)
       .eq('id', orderId);
     
     if (error) {
       toast.error('Gagal update status: ' + error.message);
     } else {
-      const label = STATUS_CONFIG[newStatus]?.label || newStatus;
-      toast.success(`Status berhasil diubah ke "${label}"`);
-      // Update selectedOrder if it's the current modal
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(prev => prev ? { ...prev, order_status: newStatus } : null);
+      if (newStatus === 'retry_lalamove') {
+        toast.success('Mencoba ulang Lalamove. Kurir akan dipanggil dalam 10 detik.');
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(prev => prev ? { ...prev, lalamove_order_id: null, lalamove_status: null } : null);
+        }
+      } else {
+        const label = STATUS_CONFIG[newStatus]?.label || newStatus;
+        toast.success(`Status berhasil diubah ke "${label}"`);
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(prev => prev ? { ...prev, order_status: newStatus } : null);
+        }
       }
       fetchOrders();
     }
@@ -599,6 +613,17 @@ export default function Orders() {
                   </a>
                 </div>
               )}
+
+              {selectedOrder.lalamove_order_id === 'MANUAL_REQUIRED' && (
+                <div className="bg-rose-50 p-5 rounded-[24px] border border-rose-100 flex flex-col gap-3">
+                  <p className="text-xs font-black text-rose-600 uppercase tracking-widest flex items-center gap-2">
+                    ⚠️ Pengiriman Lalamove Gagal
+                  </p>
+                  <p className="text-sm font-bold text-rose-700">
+                    Sistem gagal memanggil kurir otomatis (Mungkin saldo tidak cukup atau lokasi tidak valid). Silakan coba ulang atau pesan kurir secara manual lewat aplikasi Lalamove.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -638,6 +663,15 @@ export default function Orders() {
                    Selesaikan Pesanan
                  </button>
                )}
+               {selectedOrder.order_status === 'shipping' && selectedOrder.lalamove_order_id === 'MANUAL_REQUIRED' && (
+                 <button 
+                  onClick={() => askConfirm(selectedOrder.id, 'retry_lalamove', selectedOrder.order_number)}
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-purple-200 transition-all flex items-center justify-center gap-3"
+                 >
+                   <Truck size={22} />
+                   Coba Ulang Lalamove
+                 </button>
+               )}
                
                {['waiting_payment', 'confirmed'].includes(selectedOrder.order_status) && (
                  <button 
@@ -669,6 +703,7 @@ export default function Orders() {
           confirmState.action === 'packing' ? 'Mulai Proses?' :
           confirmState.action === 'shipping' ? 'Kirim Pesanan?' :
           confirmState.action === 'completed' ? 'Selesaikan Pesanan?' :
+          confirmState.action === 'retry_lalamove' ? 'Coba Ulang Lalamove?' :
           'Batalkan Pesanan?'
         }
         message={
@@ -676,6 +711,7 @@ export default function Orders() {
           confirmState.action === 'packing' ? `Tandai pesanan #${confirmState.orderNumber} sedang diproses?` :
           confirmState.action === 'shipping' ? `Tandai pesanan #${confirmState.orderNumber} sedang dikirim?` :
           confirmState.action === 'completed' ? `Tandai pesanan #${confirmState.orderNumber} sebagai selesai?` :
+          confirmState.action === 'retry_lalamove' ? `Panggil ulang kurir Lalamove untuk pesanan #${confirmState.orderNumber}?` :
           `Yakin ingin membatalkan pesanan #${confirmState.orderNumber}? Aksi ini tidak bisa dibatalkan.`
         }
         confirmLabel={
