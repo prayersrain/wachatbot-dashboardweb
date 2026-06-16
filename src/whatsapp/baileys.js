@@ -98,6 +98,11 @@ async function connectToWhatsApp(handler) {
     auth: state,
     logger: logger.child({}, { level: 'silent' }),
     browser: ['Mac OS', 'Chrome', '121.0.6167.85'],
+    connectTimeoutMs: 60000, // Timeout koneksi (60 detik)
+    keepAliveIntervalMs: 10000, // Interval ping untuk menjaga koneksi tetap hidup (10 detik)
+    syncFullHistory: false, // Jangan sinkronkan semua history agar tidak membebani memory
+    markOnlineOnConnect: true, // Beritahu server WA bahwa bot sedang online
+    generateHighQualityLinkPreview: true, // Opsional, membantu jika ada pesan link
   });
 
   sock.ev.on('creds.update', saveCreds);
