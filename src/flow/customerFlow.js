@@ -39,6 +39,34 @@ const ALIASES = {
   'ks': 'kastengel'
 };
 
+function levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function getSimilarity(inputWord, targetWord) {
+  const dist = levenshtein(inputWord, targetWord);
+  const maxLen = Math.max(inputWord.length, targetWord.length);
+  return maxLen === 0 ? 1 : (maxLen - dist) / maxLen;
+}
+
 function fuzzyMatchProduct(inputName, products) {
   let inputLower = inputName.toLowerCase().trim();
   
@@ -51,38 +79,56 @@ function fuzzyMatchProduct(inputName, products) {
     });
   }
 
+  // 1. Exact Match
   let p = products.find(prod => prod.name.toLowerCase() === inputLower);
   if (p) return { match: p, ambiguous: null };
 
-  const inputWords = inputLower.split(/\s+/).filter(w => w.length > 2);
+  // 2. Substring Match (Full input in product)
+  let exactSubMatches = products.filter(prod => prod.name.toLowerCase().includes(inputLower));
+  if (exactSubMatches.length === 1) return { match: exactSubMatches[0], ambiguous: null };
+
+  // 3. Scored Typo-Tolerant Word Match
+  const inputWords = inputLower.split(/\s+/).filter(w => w.length > 1);
   if (inputWords.length > 0) {
-    let wordMatches = products.filter(prod => {
+    let scoredMatches = products.map(prod => {
       const prodName = prod.name.toLowerCase();
-      return inputWords.every(w => prodName.includes(w));
-    });
-    
-    if (wordMatches.length === 1) return { match: wordMatches[0], ambiguous: null };
-    if (wordMatches.length > 1) return { match: null, ambiguous: wordMatches.map(m => m.name) };
-    
-    let partialMatches = products.filter(prod => {
-      const prodName = prod.name.toLowerCase();
-      return inputWords.some(w => prodName.includes(w));
-    });
-    
-    if (partialMatches.length === 1) return { match: partialMatches[0], ambiguous: null };
-    if (partialMatches.length > 1) {
-      partialMatches.sort((a, b) => {
-        const aCount = inputWords.filter(w => a.name.toLowerCase().includes(w)).length;
-        const bCount = inputWords.filter(w => b.name.toLowerCase().includes(w)).length;
-        return bCount - aCount;
-      });
-      return { match: null, ambiguous: partialMatches.slice(0, 4).map(m => m.name) };
+      const prodWords = prodName.split(/\s+/);
+      
+      let totalScore = 0;
+      for (const iw of inputWords) {
+        let bestWordScore = 0;
+        for (const pw of prodWords) {
+           const sim = getSimilarity(iw, pw);
+           if (sim > bestWordScore) bestWordScore = sim;
+        }
+        // Only count if it's a decent match (e.g., > 0.6 similarity)
+        if (bestWordScore > 0.6) {
+          totalScore += bestWordScore;
+        }
+      }
+      
+      // Bonus: If it matches exact substring, give it a boost
+      if (prodName.includes(inputLower)) totalScore += 0.5;
+
+      return { prod, score: totalScore };
+    }).filter(m => m.score > 0);
+
+    if (scoredMatches.length === 1) return { match: scoredMatches[0].prod, ambiguous: null };
+    if (scoredMatches.length > 1) {
+      scoredMatches.sort((a, b) => b.score - a.score);
+      
+      // If the top match is significantly better than the second (diff > 0.4)
+      if (scoredMatches[0].score - scoredMatches[1].score > 0.4) {
+        return { match: scoredMatches[0].prod, ambiguous: null };
+      }
+      
+      // Otherwise, it's genuinely ambiguous
+      const topScore = scoredMatches[0].score;
+      const threshold = topScore - 0.4;
+      const tiedMatches = scoredMatches.filter(m => m.score >= threshold);
+      return { match: null, ambiguous: tiedMatches.slice(0, 4).map(m => m.prod.name) };
     }
   }
-
-  let matches = products.filter(prod => prod.name.toLowerCase().includes(inputLower));
-  if (matches.length === 1) return { match: matches[0], ambiguous: null };
-  if (matches.length > 1) return { match: null, ambiguous: matches.map(m => m.name) };
 
   return { match: null, ambiguous: null };
 }
