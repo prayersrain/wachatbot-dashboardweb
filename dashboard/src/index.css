@@ -1,68 +1,108 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap');
 
 @theme {
-  --color-primary: #D97706; /* Toast Amber/Brown */
-  --color-primary-light: #FEF3C7;
-  --color-secondary: #92400E; /* Dark Bread */
-  --color-bakery-bg: #FFF8F0; /* Soft Cream */
-  --color-bakery-card: #FFFFFF;
-  --color-bakery-sidebar: #FFFBF5;
-  --color-stone-text: #44403C;
-  --color-stone-muted: #A8A29E;
-  
-  --font-inter: "Inter", sans-serif;
+  /* ── Warm Bakery Palette ── */
+  --color-crust:    #78350F; /* Deep espresso — headings */
+  --color-amber:    #D97706; /* CTA, active, emphasis */
+  --color-ash:      #B45309; /* Hover states */
+  --color-cream:    #FEF7F0; /* Page background */
+  --color-butter:   #FEF3C7; /* Highlight, selected */
+  --color-flour:    #FCFAF7; /* Card alt background */
+  --color-paper:    #FFFFFF; /* Card surface */
+  --color-ink:      #292524; /* Primary text */
+  --color-charcoal: #57534E; /* Secondary text */
+  --color-wheat:    #D6D3D1; /* Borders, disabled */
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
 }
 
+/* ── Base ── */
 @layer base {
   body {
-    @apply bg-bakery-bg text-stone-text font-inter min-h-screen antialiased;
+    @apply bg-cream text-ink font-body min-h-screen antialiased selection:bg-amber/20;
+    -webkit-tap-highlight-color: transparent;
   }
+  h1, h2 { @apply font-display tracking-tight; }
 }
 
+/* ── Components ── */
 @layer components {
-  .glass-card {
-    @apply bg-white border border-stone-200 rounded-3xl shadow-sm transition-all duration-300;
-  }
-  
-  .glass-card:hover {
-    @apply shadow-md border-stone-300;
+  /* Card */
+  .card {
+    @apply bg-paper border border-wheat/40 rounded-2xl shadow-sm;
   }
 
-  .btn-primary {
-    @apply bg-primary hover:bg-secondary text-white px-6 py-3 rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+  /* Primary button */
+  .btn {
+    @apply bg-amber hover:bg-ash text-white px-5 py-3 rounded-xl font-semibold
+           transition-all duration-200 active:scale-[0.97] disabled:opacity-40
+           flex items-center justify-center gap-2 text-sm;
   }
 
-  .input-field {
-    @apply w-full bg-white border border-stone-200 rounded-2xl px-4 py-3 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all;
+  /* Ghost button */
+  .btn-ghost {
+    @apply bg-transparent hover:bg-flour text-amber px-4 py-3 rounded-xl font-semibold
+           transition-all duration-200 active:scale-[0.97] flex items-center justify-center gap-2 text-sm;
   }
 
-  .badge {
-    @apply text-[10px] font-black uppercase px-2 py-0.5 rounded-full;
+  /* Input */
+  .input {
+    @apply w-full bg-flour border border-wheat/40 rounded-xl px-4 py-3 text-sm
+           placeholder:text-charcoal/40 focus:border-amber focus:ring-3 focus:ring-amber/10
+           outline-none transition-all duration-200;
+  }
+
+  /* Status badge — compact pill */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+           text-[11px] font-semibold leading-none;
+  }
+
+  /* Pipeline — baking tracker */
+  .pipeline {
+    @apply flex items-center gap-1;
+  }
+  .pipeline-dot {
+    @apply w-2.5 h-2.5 rounded-full transition-colors duration-300;
+  }
+  .pipeline-dot.active   { @apply bg-amber shadow-[0_0_6px_rgba(217,119,6,0.5)]; }
+  .pipeline-dot.passed   { @apply bg-ash/30; }
+  .pipeline-dot.pending  { @apply bg-wheat/50; }
+  .pipeline-bar {
+    @apply flex-1 h-0.5 rounded-full transition-colors duration-300;
+  }
+  .pipeline-bar.active  { @apply bg-amber; }
+  .pipeline-bar.pending { @apply bg-wheat/40; }
+
+  /* Data number — big stat */
+  .stat-number {
+    @apply font-display text-3xl font-black text-crust leading-none tracking-tight;
+  }
+  .stat-label {
+    @apply text-[11px] font-semibold text-charcoal uppercase tracking-wider;
   }
 }
 
-/* Custom Scrollbar for Warm Theme */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  @apply bg-stone-200 rounded-full hover:bg-stone-300;
-}
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { @apply bg-wheat rounded-full; }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ── Motion ── */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.animate-fade {
-  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
 }
+.animate-rise  { animation: riseIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.animate-breathe { animation: breathe 2s ease-in-out infinite; }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
+  0%   { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }

@@ -38,9 +38,9 @@ const getRealPhone = (order) => {
 };
 
 const STATUS_CONFIG = {
-  waiting_payment: { label: 'Menunggu Bayar', color: '#F59E0B', icon: Clock },
+  waiting_payment: { label: 'Menunggu Bayar', color: '#D97706', icon: Clock },
   confirmed: { label: 'Konfirmasi', color: '#8B5CF6', icon: CheckCircle2 },
-  packing: { label: 'Diproses', color: '#F59E0B', icon: Package },
+  packing: { label: 'Diproses', color: '#D97706', icon: Package },
   shipping: { label: 'Dikirim', color: '#0EA5E9', icon: Truck },
   completed: { label: 'Selesai', color: '#10B981', icon: CheckCircle2 },
   cancelled: { label: 'Batal', color: '#EF4444', icon: XCircle }
@@ -387,9 +387,9 @@ export default function Orders() {
             const items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
             
             return (
-              <div 
-                key={order.id} 
-                className="bg-white border border-stone-100 rounded-[32px] p-6 shadow-sm hover:shadow-xl hover:border-stone-200 transition-all cursor-pointer group"
+              <div
+                key={order.id}
+                className="card p-5 hover:shadow-lg transition-all cursor-pointer group"
                 onClick={() => setSelectedOrder(order)}
               >
                 <div className="flex justify-between items-start gap-4 mb-6">

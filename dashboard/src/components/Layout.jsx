@@ -4,12 +4,11 @@ import { LayoutDashboard, ShoppingBag, Box, LogOut, Users, Settings, MessageCirc
 import { supabase } from '../lib/supabase';
 
 const NavItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/', label: 'Beranda', icon: LayoutDashboard },
   { path: '/inbox', label: 'Inbox', icon: MessageCircle },
   { path: '/orders', label: 'Pesanan', icon: ShoppingBag },
   { path: '/products', label: 'Produk', icon: Box },
-  { path: '/customers', label: 'Pelanggan', icon: Users },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/customers', label: 'Klien', icon: Users },
 ];
 
 export default function Layout({ children }) {
@@ -21,99 +20,100 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-bakery-bg">
-      {/* Mobile Top Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-md border-b border-stone-200 z-[100] flex items-center justify-between px-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-white p-1.5 rounded-lg shadow-sm border border-stone-100">
-            <img src="/logoyoyobolen.PNG" alt="Logo" className="w-8 h-8 object-contain" />
-          </div>
-          <h2 className="font-bold text-secondary text-base">Yoyo Bakery</h2>
+    <div className="flex min-h-screen bg-cream">
+      {/* ── Mobile Top Bar ── */}
+      <header className="lg:hidden fixed top-0 inset-x-0 h-14 bg-cream/90 backdrop-blur-md border-b border-wheat/30 z-[100] flex items-center justify-between px-4">
+        <div className="flex items-center gap-2.5">
+          <img src="/logoyoyobolen.PNG" alt="Yoyo" className="w-7 h-7 object-contain rounded-lg" />
+          <span className="font-display font-bold text-base text-crust tracking-tight">Yoyo</span>
         </div>
-        <div className="flex items-center gap-2">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `w-9 h-9 flex items-center justify-center rounded-full transition-colors border ${isActive ? 'bg-primary text-white border-primary' : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'}`}
+        <div className="flex items-center gap-1">
+          <NavLink to="/settings"
+            className={({ isActive }) => `w-9 h-9 flex items-center justify-center rounded-xl transition-all ${isActive ? 'bg-amber text-white' : 'text-charcoal hover:bg-flour'}`}
           >
-            <Settings size={16} />
+            <Settings size={17} />
           </NavLink>
-          <button 
-            onClick={handleLogout}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-100 transition-colors"
-          >
-            <LogOut size={16} />
+          <button onClick={handleLogout}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-rose-600 hover:bg-rose-50 transition-all">
+            <LogOut size={17} />
           </button>
         </div>
       </header>
 
-      {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex w-72 h-[calc(100vh-32px)] fixed left-4 top-4 bg-bakery-sidebar border border-stone-200 rounded-[32px] flex-col p-8 z-50 shadow-sm">
-        <div className="flex items-center gap-3 pb-8 mb-4 border-b border-stone-100">
-          <div className="bg-white p-2 rounded-xl shadow-sm">
-            <img src="/logoyoyobolen.PNG" alt="Logo" className="w-10 h-10 object-contain" />
-          </div>
+      {/* ── Desktop Sidebar ── */}
+      <aside className="hidden lg:flex w-64 h-screen fixed left-0 top-0 bg-paper border-r border-wheat/30 flex-col p-6 z-50">
+        <div className="flex items-center gap-3 pb-6 mb-6 border-b border-wheat/30">
+          <img src="/logoyoyobolen.PNG" alt="Logo" className="w-10 h-10 object-contain rounded-xl" />
           <div>
-            <h2 className="font-bold text-secondary text-lg leading-tight">Yoyo Bakery</h2>
-            <p className="text-xs text-stone-muted font-medium uppercase tracking-wider">Backoffice</p>
+            <h2 className="font-display font-bold text-lg text-crust leading-tight">Yoyo Bakery</h2>
+            <p className="text-[10px] font-semibold text-charcoal/50 uppercase tracking-widest">Dashboard</p>
           </div>
         </div>
-        
-        <nav className="flex-1 space-y-2">
+
+        <nav className="flex-1 space-y-1">
           {NavItems.map((item) => (
-            <NavLink 
-              key={item.path} 
-              to={item.path} 
-              className={({ isActive }) => `
-                flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 group
-                ${isActive 
-                  ? 'bg-primary text-white shadow-lg shadow-primary/20' 
-                  : 'text-stone-text hover:bg-stone-100'
-                }
-              `}
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-semibold
+                ${isActive
+                  ? 'bg-amber text-white shadow-md shadow-amber/20'
+                  : 'text-charcoal hover:bg-flour'
+                }`
+              }
             >
-              {({ isActive }) => (
-                <>
-                  <item.icon size={20} className={isActive ? 'text-white' : 'text-stone-muted group-hover:text-primary'} />
-                  <span className="font-semibold">{item.label}</span>
-                </>
-              )}
+              <item.icon size={18} strokeWidth={2} />
+              {item.label}
             </NavLink>
           ))}
         </nav>
 
-        <button 
-          onClick={handleLogout} 
-          className="flex items-center gap-4 px-5 py-4 rounded-2xl text-rose-600 hover:bg-rose-50 transition-all duration-200 mt-auto font-semibold"
+        <NavLink to="/settings"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-sm font-semibold mt-1
+            ${isActive ? 'bg-amber text-white' : 'text-charcoal hover:bg-flour'}`
+          }
         >
-          <LogOut size={20} />
-          <span>Keluar</span>
+          <Settings size={18} strokeWidth={2} />
+          Settings
+        </NavLink>
+
+        <button onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-rose-600 hover:bg-rose-50 transition-all duration-200 text-sm font-semibold mt-2">
+          <LogOut size={18} strokeWidth={2} />
+          Keluar
         </button>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 pt-20 lg:pt-4 lg:ml-80 p-4 md:p-8 pb-28 lg:pb-8">
-        <div className="max-w-6xl mx-auto animate-fade">
+      {/* ── Main Content ── */}
+      <main className="flex-1 pt-16 pb-24 lg:pt-6 lg:pb-6 lg:ml-64 px-4 md:px-8">
+        <div className="max-w-6xl mx-auto animate-rise">
           {children}
         </div>
       </main>
 
-      {/* Bottom Navigation - Mobile */}
-      <nav className="lg:hidden fixed bottom-4 left-4 right-4 h-16 bg-white/90 backdrop-blur-xl border border-stone-200/50 rounded-[24px] flex justify-around items-center px-2 z-[100] shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-        {NavItems.filter(item => item.path !== '/settings').map((item) => (
-          <NavLink 
-            key={item.path} 
-            to={item.path} 
-            className={({ isActive }) => `
-              relative flex flex-col items-center justify-center w-12 h-12 transition-all duration-300 rounded-xl
-              ${isActive ? 'text-primary' : 'text-stone-400 hover:text-stone-600'}
-            `}
+      {/* ── Bottom Nav (Mobile) ── */}
+      <nav className="lg:hidden fixed bottom-3 inset-x-3 h-16 bg-paper/95 backdrop-blur-xl
+        border border-wheat/30 rounded-2xl flex justify-around items-center px-2 z-[100]
+        shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+        {NavItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `relative flex flex-col items-center justify-center gap-0.5 px-3 py-2 rounded-xl
+               transition-all duration-200 min-w-0
+              ${isActive ? 'text-amber' : 'text-charcoal/40 hover:text-charcoal/70'}`
+            }
           >
             {({ isActive }) => (
               <>
-                {isActive && (
-                  <span className="absolute -top-1 w-1 h-1 bg-primary rounded-full shadow-[0_0_8px_rgba(217,119,6,0.6)]"></span>
-                )}
-                <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'drop-shadow-sm scale-110' : ''} />
+                {isActive && <span className="absolute -top-0.5 w-1 h-1 bg-amber rounded-full" />}
+                <item.icon size={21} strokeWidth={isActive ? 2.5 : 1.8} />
+                <span className={`text-[10px] font-semibold leading-none ${isActive ? 'text-amber' : ''}`}>
+                  {item.label}
+                </span>
               </>
             )}
           </NavLink>
