@@ -24,7 +24,7 @@
     @apply bg-cream text-ink font-body min-h-screen antialiased selection:bg-amber/20;
     -webkit-tap-highlight-color: transparent;
   }
-  h1, h2 { @apply font-display tracking-tight; }
+  h1 { @apply font-display tracking-tight; }
 }
 
 /* ── Components ── */
@@ -76,9 +76,9 @@
   .pipeline-bar.active  { @apply bg-amber; }
   .pipeline-bar.pending { @apply bg-wheat/40; }
 
-  /* Data number — big stat */
+  /* Data number — bold Inter, NOT serif */
   .stat-number {
-    @apply font-display text-3xl font-black text-crust leading-none tracking-tight;
+    @apply text-2xl font-extrabold text-ink leading-none tracking-tight;
   }
   .stat-label {
     @apply text-[11px] font-semibold text-charcoal uppercase tracking-wider;

@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRight, Clock, ChevronRight } from 'lucide-react';
+import { TrendingUp, Users, ShoppingBag, DollarSign, ArrowUpRight, ArrowDownRight, Clock, ChevronRight, CheckCircle2, Package, Truck, CreditCard } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { SkeletonStat, SkeletonChart } from '../components/Skeleton';
 
 /* ── Pipeline: Baking Tracker ── */
 const PIPELINE = [
-  { key: 'waiting_payment', label: 'Bayar', icon: '💳' },
-  { key: 'confirmed',       label: 'Konfirm', icon: '✅' },
-  { key: 'packing',         label: 'Proses', icon: '📦' },
-  { key: 'shipping',        label: 'Kirim', icon: '🛵' },
+  { key: 'waiting_payment', label: 'Bayar', icon: CreditCard },
+  { key: 'confirmed',       label: 'Konfirm', icon: CheckCircle2 },
+  { key: 'packing',         label: 'Proses', icon: Package },
+  { key: 'shipping',        label: 'Kirim', icon: Truck },
 ];
 
 function BakePipeline({ counts }) {
@@ -26,13 +26,16 @@ function BakePipeline({ counts }) {
         <span className="text-[10px] font-semibold text-charcoal/50 uppercase tracking-wider">Live</span>
       </div>
       <div className="flex items-stretch gap-1.5">
-        {steps.map((step, i) => (
+        {steps.map((step, i) => {
+          const Icon = step.icon;
+          return (
           <div key={step.key} className="flex-1 flex flex-col items-center gap-2">
-            <span className="text-xl">{step.icon}</span>
-            <span className="stat-number text-xl">{step.count}</span>
-            <span className="stat-label text-center">{step.label}</span>
+            <Icon size={22} className={step.count > 0 ? 'text-amber' : 'text-wheat'} strokeWidth={2} />
+            <span className="text-xl font-bold text-crust">{step.count}</span>
+            <span className="text-[10px] font-semibold text-charcoal text-center">{step.label}</span>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -41,23 +44,20 @@ function BakePipeline({ counts }) {
 /* ── Stat Card ── */
 function StatCard({ title, value, icon: Icon, trend, trendLabel, color }) {
   return (
-    <div className="card p-5 group transition-all duration-300 hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="stat-label">{title}</p>
-          <p className="stat-number" style={{ color }}>{value}</p>
-          {trend != null && (
-            <div className={`flex items-center gap-1 text-xs font-semibold mt-1.5 ${trend >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-              {Math.abs(trend)}% {trendLabel}
-            </div>
-          )}
-        </div>
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 duration-300"
-          style={{ backgroundColor: `${color}15`, color }}>
-          <Icon size={22} strokeWidth={2} />
+    <div className="card p-4 transition-all duration-300 hover:shadow-md">
+      <div className="flex items-start justify-between mb-2">
+        <p className="text-[10px] font-semibold text-charcoal uppercase tracking-wider">{title}</p>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + '18' }}>
+          <Icon size={17} style={{ color }} strokeWidth={2} />
         </div>
       </div>
+      <p className="text-xl font-extrabold text-ink tracking-tight">{value}</p>
+      {trend != null && (
+        <div className={`flex items-center gap-1 text-[11px] font-semibold mt-1 ${trend >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          {trend >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+          {Math.abs(trend)}% {trendLabel}
+        </div>
+      )}
     </div>
   );
 }
@@ -156,7 +156,7 @@ export default function Dashboard() {
       {/* ── Stats Grid ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard title="Pendapatan Hari Ini" value={`Rp ${stats.todayRevenue.toLocaleString('id-ID')}`} icon={DollarSign} color="#D97706" trend={stats.todayTrend} trendLabel="vs kemarin" />
-        <StatCard title="Bulan Ini" value={`Rp ${stats.monthRevenue.toLocaleString('id-ID')}`} icon={TrendingUp} color="#0EA5E9" trend={stats.monthTrend} trendLabel="vs bulan lalu" />
+        <StatCard title="Bulan Ini" value={`Rp ${stats.monthRevenue.toLocaleString('id-ID')}`} icon={TrendingUp} color="#0EA5E9" trend={stats.monthTrend} trendLabel="vs lalu" />
         <StatCard title="Pesanan Aktif" value={stats.totalOrders} icon={ShoppingBag} color="#10B981" />
         <StatCard title="Pelanggan" value={stats.activeCustomers} icon={Users} color="#8B5CF6" />
       </div>
