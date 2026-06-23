@@ -3,16 +3,27 @@
 
 @theme {
   /* ── Warm Bakery Palette ── */
-  --color-crust:    #78350F; /* Deep espresso — headings */
-  --color-amber:    #D97706; /* CTA, active, emphasis */
-  --color-ash:      #B45309; /* Hover states */
-  --color-cream:    #FEF7F0; /* Page background */
-  --color-butter:   #FEF3C7; /* Highlight, selected */
-  --color-flour:    #FCFAF7; /* Card alt background */
-  --color-paper:    #FFFFFF; /* Card surface */
-  --color-ink:      #292524; /* Primary text */
-  --color-charcoal: #57534E; /* Secondary text */
-  --color-wheat:    #D6D3D1; /* Borders, disabled */
+  /* Legacy compatibility — keep old class names working */
+  --color-primary:      #D97706;
+  --color-primary-light:#FEF3C7;
+  --color-secondary:    #78350F;
+  --color-bakery-bg:    #FEF7F0;
+  --color-bakery-card:  #FFFFFF;
+  --color-bakery-sidebar:#FFFBF5;
+  --color-stone-text:   #44403C;
+  --color-stone-muted:  #A8A29E;
+
+  /* New design tokens */
+  --color-crust:    #78350F;
+  --color-amber:    #D97706;
+  --color-ash:      #B45309;
+  --color-cream:    #FEF7F0;
+  --color-butter:   #FEF3C7;
+  --color-flour:    #FCFAF7;
+  --color-paper:    #FFFFFF;
+  --color-ink:      #292524;
+  --color-charcoal: #57534E;
+  --color-wheat:    #D6D3D1;
 
   --font-display: "Playfair Display", Georgia, serif;
   --font-body: "Inter", system-ui, sans-serif;
